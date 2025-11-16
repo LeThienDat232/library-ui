@@ -1,0 +1,192 @@
+.sign-up-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 520px);
+  background: #fff;
+}
+
+.hero-pane {
+  position: relative;
+  background: #020617;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 2rem 2.5rem;
+  overflow: hidden;
+}
+
+.hero-image {
+  position: absolute;
+  inset: 0;
+  background-image: url('https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1800&q=80');
+  background-size: cover;
+  background-position: center;
+  filter: contrast(1.05);
+  z-index: 0;
+}
+
+.hero-pane::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(2, 6, 23, 0.65), rgba(2, 6, 23, 0.05));
+  z-index: 1;
+}
+
+.photo-credit {
+  position: relative;
+  z-index: 2;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.02em;
+}
+
+.photo-credit a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.form-pane {
+  background: #fff;
+  border-radius: 32px 0 0 32px;
+  padding: clamp(2rem, 5vw, 3.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.brand-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.brand-title {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: 1.45rem;
+}
+
+.form-heading {
+  font-size: clamp(1.75rem, 4vw, 1.8rem);
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.sign-up-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.95rem;
+  color: #4a4f5e;
+}
+
+.field input {
+  border: none;
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  font-size: 0.95rem;
+  background: #f3f4f7;
+  outline: 2px solid transparent;
+  transition: outline-color 0.2s ease, background 0.2s ease;
+}
+
+.field input:focus {
+  outline-color: #0a61ff;
+  background: #fff;
+}
+
+.password-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input input {
+  flex: 1;
+  padding-right: 3rem;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0.35rem;
+  display: grid;
+  place-items: center;
+  color: #9fa4b2;
+  cursor: pointer;
+}
+
+.toggle-password svg {
+  width: 22px;
+  height: 22px;
+}
+
+.primary-btn {
+  border: none;
+  border-radius: 14px;
+  height: 50px;
+  background: #0a61ff;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.primary-btn:hover {
+  background: #0050d4;
+}
+
+.primary-btn:active {
+  transform: translateY(1px);
+}
+
+.signin-cta {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+  color: #62697b;
+}
+
+.link-muted {
+  color: #0a61ff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.link-muted:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 960px) {
+  .sign-up-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-pane {
+    min-height: 45vh;
+    border-radius: 0 0 32px 32px;
+  }
+
+  .form-pane {
+    border-radius: 32px 32px 0 0;
+  }
+}
