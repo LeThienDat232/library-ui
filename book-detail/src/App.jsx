@@ -1,6 +1,5 @@
 import React from "react";
 import "./app.css";
-import webshelfLogo from "./assets/webshelf-logo.png";
 
 const bookCover =
   "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=480&q=60";
@@ -53,13 +52,6 @@ function App() {
           <button className="icon-button" aria-label="Back">
             ←
           </button>
-          <div className="brand">
-            <img src={webshelfLogo} alt="Webshelf logo" />
-            <div className="brand-copy">
-              <span className="brand-name">WEBSHELF</span>
-              <span className="brand-tagline">Curated reads</span>
-            </div>
-          </div>
         </header>
 
         <main className="page-layout">

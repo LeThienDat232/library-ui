@@ -78,17 +78,14 @@ function App() {
         <div className="home-hero-inner">
           <header className="home-header">
             <div className="home-brand">
+              <span className="home-brand-name">WEBSHELF</span>
+              <span className="brand-divider" />
               <img src={webshelfLogo} alt="Webshelf logo" />
-              <div>
-                <span className="home-brand-name">WEBSHELF</span>
-                <span className="home-brand-tagline">Curated reads for you</span>
-              </div>
             </div>
 
             <nav className="home-nav">
               <a href="#explorer">Explorer</a>
               <a href="#shop">Shop</a>
-              <a href="#blog">Blog</a>
               <button className="home-login-btn">Log in</button>
             </nav>
           </header>
@@ -96,11 +93,7 @@ function App() {
           <div className="home-hero-body">
             <div className="home-hero-text">
               <h1>MEET YOUR NEXT FAVORITE BOOK.</h1>
-              <p className="home-hero-sub">What Will You Discover?</p>
-              <p className="home-hero-desc">
-                Discover curated collections, trending titles, and timeless favorites from authors
-                around the world.
-              </p>
+              <p className="home-hero-desc">What Will You Discover?</p>
 
               <div className="home-search-box">
                 <span className="home-search-icon">🔍</span>
@@ -110,28 +103,13 @@ function App() {
                   aria-label="Search book"
                 />
               </div>
-
-              <div className="home-hero-stats">
-                <div>
-                  <p className="home-stat-value">120K+</p>
-                  <p className="home-stat-label">Books curated</p>
-                </div>
-                <div>
-                  <p className="home-stat-value">3.7M</p>
-                  <p className="home-stat-label">Monthly readers</p>
-                </div>
-                <div>
-                  <p className="home-stat-value">4.8</p>
-                  <p className="home-stat-label">Avg. rating</p>
-                </div>
-              </div>
             </div>
 
-            <div className="home-hero-art">
-              <div className="home-hero-blob" />
-              <div className="home-hero-outline" />
-              <div className="home-hero-dots" />
-              <div className="home-hero-dots home-hero-dots--alt" />
+            <div className="home-hero-panel">
+              <div className="panel-shape" />
+              <div className="panel-ring" />
+              <div className="panel-dots" />
+              <div className="panel-dots panel-dots--low" />
             </div>
           </div>
         </div>
