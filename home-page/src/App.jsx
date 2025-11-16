@@ -1,59 +1,88 @@
 import React from "react";
 import "./app.css";
+import webshelfLogo from "./assets/webshelf-logo.png";
 
 const trendingBooks = [
-  { title: "Tentang Kamu", author: "Tere Liye" },
-  { title: "Pergi", author: "Tere Liye" },
-  { title: "Garis Waktu", author: "Fiersa Besari" },
-  { title: "Becoming", author: "Michelle Obama" },
-  { title: "Becoming", author: "Michelle Obama" },
+  {
+    title: "Tentang Kamu",
+    author: "Tere Liye",
+    cover:
+      "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=300&q=60",
+  },
+  {
+    title: "Pergi",
+    author: "Tere Liye",
+    cover:
+      "https://images.unsplash.com/photo-1528208079127-0c566ade0f2c?auto=format&fit=crop&w=300&q=60",
+  },
+  {
+    title: "Garis Waktu",
+    author: "Fiersa Besari",
+    cover:
+      "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=300&q=60",
+  },
+  {
+    title: "Becoming",
+    author: "Michelle Obama",
+    cover:
+      "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=300&q=60",
+  },
 ];
 
 const featuredBooks = [
   {
     title: "All The Light We Cannot See",
     author: "Anthony Doerr",
+    cover:
+      "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=300&q=60",
   },
   {
     title: "Where The Crawdads Sing",
     author: "Delia Owens",
+    cover:
+      "https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=300&q=60",
   },
   {
     title: "Rich People Problems",
     author: "Kevin Kwan",
+    cover:
+      "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=300&q=60",
   },
   {
     title: "Becoming",
     author: "Michelle Obama",
+    cover:
+      "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=300&q=60",
   },
   {
     title: "Konspirasi Alam Semesta",
     author: "Fiersa Besari",
+    cover:
+      "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=300&q=60",
   },
   {
-    title: "Rich People Problems",
+    title: "Crazy Rich Asians",
     author: "Kevin Kwan",
-  },
-  {
-    title: "Rich People Problems",
-    author: "Kevin Kwan",
-  },
-  {
-    title: "Rich People Problems",
-    author: "Kevin Kwan",
+    cover:
+      "https://images.unsplash.com/photo-1524253482453-3fed8d2fe12b?auto=format&fit=crop&w=300&q=60",
   },
 ];
 
 function App() {
+  const heroBook = featuredBooks[0];
+
   return (
     <div className="home-app">
       {/* HERO + HEADER */}
       <section className="home-hero">
         <div className="home-hero-inner">
           <header className="home-header">
-            <div className="home-logo">
-              <span className="home-logo-text">WEBSHELF</span>
-              <span className="home-logo-icon">📚</span>
+            <div className="home-brand">
+              <img src={webshelfLogo} alt="Webshelf logo" />
+              <div>
+                <span className="home-brand-name">WEBSHELF</span>
+                <span className="home-brand-tagline">Curated reads for you</span>
+              </div>
             </div>
 
             <nav className="home-nav">
@@ -68,6 +97,10 @@ function App() {
             <div className="home-hero-text">
               <h1>MEET YOUR NEXT FAVORITE BOOK.</h1>
               <p className="home-hero-sub">What Will You Discover?</p>
+              <p className="home-hero-desc">
+                Discover curated collections, trending titles, and timeless favorites from authors
+                around the world.
+              </p>
 
               <div className="home-search-box">
                 <span className="home-search-icon">🔍</span>
@@ -77,10 +110,29 @@ function App() {
                   aria-label="Search book"
                 />
               </div>
+
+              <div className="home-hero-stats">
+                <div>
+                  <p className="home-stat-value">120K+</p>
+                  <p className="home-stat-label">Books curated</p>
+                </div>
+                <div>
+                  <p className="home-stat-value">3.7M</p>
+                  <p className="home-stat-label">Monthly readers</p>
+                </div>
+                <div>
+                  <p className="home-stat-value">4.8</p>
+                  <p className="home-stat-label">Avg. rating</p>
+                </div>
+              </div>
             </div>
 
-            {/* blue abstract shape */}
-            <div className="home-hero-shape" />
+            <div className="home-hero-art">
+              <div className="home-hero-blob" />
+              <div className="home-hero-outline" />
+              <div className="home-hero-dots" />
+              <div className="home-hero-dots home-hero-dots--alt" />
+            </div>
           </div>
         </div>
       </section>
@@ -89,23 +141,27 @@ function App() {
       <section className="home-trending">
         <div className="home-section-inner">
           <h2 className="home-section-title">Trending</h2>
-          <div className="home-trending-row">
-            {trendingBooks.map((book, idx) => (
-              <div className="home-trending-card" key={idx}>
-                <div className="home-cover home-cover-tall" />
-                <div className="home-book-meta">
-                  <h3>{book.title}</h3>
-                  <p className="home-book-author">{book.author}</p>
-                  <div className="home-stars">
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span className="home-star-muted">★</span>
+          <div className="home-trending-marquee">
+            <div className="home-trending-track">
+              {[...trendingBooks, ...trendingBooks].map((book, idx) => (
+                <div className="home-trending-card" key={`${book.title}-${idx}`}>
+                  <div className="home-cover home-cover-tall">
+                    <img src={book.cover} alt={book.title} />
+                  </div>
+                  <div className="home-book-meta">
+                    <h3>{book.title}</h3>
+                    <p className="home-book-author">{book.author}</p>
+                    <div className="home-stars">
+                      <span>★</span>
+                      <span>★</span>
+                      <span>★</span>
+                      <span>★</span>
+                      <span className="home-star-muted">★</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -140,7 +196,9 @@ function App() {
           <div className="home-book-list">
             {featuredBooks.map((book, index) => (
               <article className="home-book-card" key={index}>
-                <div className="home-cover" />
+                <div className="home-cover">
+                  <img src={book.cover} alt={book.title} />
+                </div>
                 <div className="home-book-info">
                   <h3 className="home-book-title">{book.title}</h3>
                   <p className="home-book-author">By {book.author}</p>
