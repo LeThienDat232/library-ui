@@ -1,206 +1,184 @@
-import './App.css'
-import webshelfLogo from './assets/webshelf-logo.png'
+import React from "react";
+import "./app.css";
 
 const trendingBooks = [
-  {
-    title: 'Tentang Kamu',
-    author: 'Tere Liye',
-    cover:
-      'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=300&q=60',
-  },
-  {
-    title: 'Pergi',
-    author: 'Tere Liye',
-    cover:
-      'https://images.unsplash.com/photo-1528208079127-0c566ade0f2c?auto=format&fit=crop&w=300&q=60',
-  },
-  {
-    title: 'Garis Waktu',
-    author: 'Fiersa Besari',
-    cover:
-      'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=300&q=60',
-  },
-  {
-    title: 'Becoming',
-    author: 'Michelle Obama',
-    cover:
-      'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=300&q=60',
-  },
-  {
-    title: 'Where The Crawdads Sing',
-    author: 'Delia Owens',
-    cover:
-      'https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=300&q=60',
-  },
-  {
-    title: 'Crazy Rich Asians',
-    author: 'Kevin Kwan',
-    cover:
-      'https://images.unsplash.com/photo-1524253482453-3fed8d2fe12b?auto=format&fit=crop&w=300&q=60',
-  },
-]
+  { title: "Tentang Kamu", author: "Tere Liye" },
+  { title: "Pergi", author: "Tere Liye" },
+  { title: "Garis Waktu", author: "Fiersa Besari" },
+  { title: "Becoming", author: "Michelle Obama" },
+  { title: "Becoming", author: "Michelle Obama" },
+];
 
 const featuredBooks = [
   {
-    title: 'All The Light We Cannot See',
-    author: 'Anthony Doerr',
-    voters: '1,988,288',
-    cover:
-      'https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=300&q=60',
+    title: "All The Light We Cannot See",
+    author: "Anthony Doerr",
   },
   {
-    title: 'Where The Crawdads Sing',
-    author: 'Delia Owens',
-    voters: '1,988,288',
-    cover:
-      'https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=300&q=60',
+    title: "Where The Crawdads Sing",
+    author: "Delia Owens",
   },
   {
-    title: 'Rich People Problems',
-    author: 'Kevin Kwan',
-    voters: '1,988,288',
-    cover:
-      'https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=300&q=60',
+    title: "Rich People Problems",
+    author: "Kevin Kwan",
   },
   {
-    title: 'Becoming',
-    author: 'Michelle Obama',
-    voters: '1,988,288',
-    cover:
-      'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=300&q=60',
+    title: "Becoming",
+    author: "Michelle Obama",
   },
   {
-    title: 'Konspirasi Alam Semesta',
-    author: 'Fiersa Besari',
-    voters: '1,988,288',
-    cover:
-      'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=300&q=60',
+    title: "Konspirasi Alam Semesta",
+    author: "Fiersa Besari",
   },
-]
-
-const genres = [
-  'All Genres',
-  'Business',
-  'Science',
-  'Fiction',
-  'Philosophy',
-  'Biography',
-]
-
-const recommendations = [
-  'Artist of the Month',
-  'Book of the Year',
-  'Top Genre',
-  'Trending',
-]
+  {
+    title: "Rich People Problems",
+    author: "Kevin Kwan",
+  },
+  {
+    title: "Rich People Problems",
+    author: "Kevin Kwan",
+  },
+  {
+    title: "Rich People Problems",
+    author: "Kevin Kwan",
+  },
+];
 
 function App() {
   return (
-    <div className="page">
-      <header className="hero">
-        <nav className="hero__nav">
-          <div className="brand">
-            <img src={webshelfLogo} alt="Webshelf logo" className="brand-logo" />
-            <span className="brand-title">WEBSHELF</span>
-          </div>
-          <div className="nav-links">
-            <a href="#discover">Explorer</a>
-            <a href="#shop">Shop</a>
-            <a href="#blog">Blog</a>
-          </div>
-          <button className="btn btn--ghost">Log in</button>
-        </nav>
-        <div className="hero__body">
-          <div className="hero__text">
-            <p className="eyebrow">What Will You Discover?</p>
-            <h1>MEET YOUR NEXT FAVORITE BOOK.</h1>
-            <div className="search-bar">
-              <input type="text" placeholder="Search Book" aria-label="Search" />
-              <button className="btn btn--search">Search</button>
+    <div className="home-app">
+      {/* HERO + HEADER */}
+      <section className="home-hero">
+        <div className="home-hero-inner">
+          <header className="home-header">
+            <div className="home-logo">
+              <span className="home-logo-text">WEBSHELF</span>
+              <span className="home-logo-icon">📚</span>
             </div>
-          </div>
-          <div className="hero__art" aria-hidden="true">
-            <div className="hero__blob" />
-            <div className="hero__circle" />
-            <div className="hero__dots hero__dots--top" />
-            <div className="hero__dots hero__dots--bottom" />
+
+            <nav className="home-nav">
+              <a href="#explorer">Explorer</a>
+              <a href="#shop">Shop</a>
+              <a href="#blog">Blog</a>
+              <button className="home-login-btn">Log in</button>
+            </nav>
+          </header>
+
+          <div className="home-hero-body">
+            <div className="home-hero-text">
+              <h1>MEET YOUR NEXT FAVORITE BOOK.</h1>
+              <p className="home-hero-sub">What Will You Discover?</p>
+
+              <div className="home-search-box">
+                <span className="home-search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search Book"
+                  aria-label="Search book"
+                />
+              </div>
+            </div>
+
+            {/* blue abstract shape */}
+            <div className="home-hero-shape" />
           </div>
         </div>
-      </header>
+      </section>
 
-      <main>
-        <section className="section section--trending">
-          <div className="section-header">
-            <h2>Trending</h2>
-            <button className="link-button">View all</button>
-          </div>
-          <div className="trending-grid">
-            {trendingBooks.map((book) => (
-              <div key={book.title} className="trending-card">
-                <img src={book.cover} alt={book.title} />
-                <p className="book-title">{book.title}</p>
-                <p className="book-author">{book.author}</p>
-                <div className="rating" aria-label="rating">
-                  {'★'.repeat(5)}
+      {/* TRENDING */}
+      <section className="home-trending">
+        <div className="home-section-inner">
+          <h2 className="home-section-title">Trending</h2>
+          <div className="home-trending-row">
+            {trendingBooks.map((book, idx) => (
+              <div className="home-trending-card" key={idx}>
+                <div className="home-cover home-cover-tall" />
+                <div className="home-book-meta">
+                  <h3>{book.title}</h3>
+                  <p className="home-book-author">{book.author}</p>
+                  <div className="home-stars">
+                    <span>★</span>
+                    <span>★</span>
+                    <span>★</span>
+                    <span>★</span>
+                    <span className="home-star-muted">★</span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="section section--catalogue">
-          <aside className="catalogue-sidebar">
-            <div className="sidebar-block">
+      {/* MAIN CONTENT */}
+      <section className="home-main">
+        <div className="home-section-inner home-main-grid">
+          {/* SIDEBAR */}
+          <aside className="home-sidebar">
+            <div className="home-sidebar-block">
               <h3>Book by Genre</h3>
-              <ul>
-                {genres.map((genre) => (
-                  <li key={genre} className={genre === 'All Genres' ? 'active' : ''}>
-                    {genre}
-                  </li>
-                ))}
-              </ul>
+              <button className="home-nav-pill home-nav-pill-active">
+                All Genres
+              </button>
+              <button className="home-nav-pill">Business</button>
+              <button className="home-nav-pill">Science</button>
+              <button className="home-nav-pill">Fiction</button>
+              <button className="home-nav-pill">Philosophy</button>
+              <button className="home-nav-pill">Biography</button>
             </div>
-            <div className="sidebar-block">
+
+            <div className="home-sidebar-block">
               <h3>Recommendations</h3>
-              <ul>
-                {recommendations.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              <button className="home-sidebar-link">Artist of the Month</button>
+              <button className="home-sidebar-link">Book of the Year</button>
+              <button className="home-sidebar-link">Top Genre</button>
+              <button className="home-sidebar-link">Trending</button>
             </div>
           </aside>
-          <div className="catalogue-grid">
-            {featuredBooks.map((book) => (
-              <article key={book.title} className="featured-card">
-                <img src={book.cover} alt={book.title} />
-                <div className="featured-content">
-                  <h4>{book.title}</h4>
-                  <p className="book-author">By {book.author}</p>
-                  <p className="rating">
-                    ★★★★☆ <span>{book.voters} voters</span>
+
+          {/* BOOK LIST */}
+          <div className="home-book-list">
+            {featuredBooks.map((book, index) => (
+              <article className="home-book-card" key={index}>
+                <div className="home-cover" />
+                <div className="home-book-info">
+                  <h3 className="home-book-title">{book.title}</h3>
+                  <p className="home-book-author">By {book.author}</p>
+                  <div className="home-book-votes">
+                    <div className="home-stars home-stars-small">
+                      <span>★</span>
+                      <span>★</span>
+                      <span>★</span>
+                      <span>★</span>
+                      <span className="home-star-muted">★</span>
+                    </div>
+                    <span>1,988,288 voters</span>
+                  </div>
+                  <p className="home-book-desc">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                    Purus morbi eleifend enim, tristique.
                   </p>
-                  <p className="book-description">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Purus morbi
-                    eleifend enim, tristique.
-                  </p>
-                  <button className="btn btn--primary">Buy Now</button>
+                  <button className="home-ghost-btn">Buy Now</button>
                 </div>
               </article>
             ))}
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
 
-      <footer className="footer">
-        <p>2020 MYBOOK</p>
-        <div className="footer-links">
-          <a href="#explorer">Explorer</a>
-          <a href="#shop">Shop</a>
-          <a href="#about">About</a>
+      {/* FOOTER */}
+      <footer className="home-footer">
+        <div className="home-footer-inner">
+          <span>2020 MYBOOK</span>
+          <div className="home-footer-links">
+            <a href="#explorer">Explorer</a>
+            <a href="#shop">Shop</a>
+            <a href="#about">About</a>
+          </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
