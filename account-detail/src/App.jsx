@@ -231,8 +231,7 @@ function App() {
 
           <div className="header-right">
             <nav className="top-nav">
-              <a href="#">Explorer</a>
-              <a href="#">Shop</a>
+              <a href="#">Account</a>
             </nav>
             <div className="user-avatar">
               <span />
@@ -283,8 +282,6 @@ function App() {
         <div className="account-footer-inner">
           <span>2025 WEBSHELF</span>
           <div className="account-footer-links">
-            <a href="#explorer">Explorer</a>
-            <a href="#shop">Shop</a>
             <a href="#about">About</a>
           </div>
         </div>

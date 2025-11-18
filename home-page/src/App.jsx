@@ -84,8 +84,6 @@ function App() {
             </div>
 
             <nav className="home-nav">
-              <a href="#explorer">Explorer</a>
-              <a href="#shop">Shop</a>
               <button className="home-login-btn">Log in</button>
             </nav>
           </header>
@@ -204,14 +202,12 @@ function App() {
 
       {/* FOOTER */}
       <footer className="home-footer">
-        <div className="home-footer-inner">
-          <span>2025 WEBSHELF</span>
-          <div className="home-footer-links">
-            <a href="#explorer">Explorer</a>
-            <a href="#shop">Shop</a>
-            <a href="#about">About</a>
+          <div className="home-footer-inner">
+            <span>2025 WEBSHELF</span>
+            <div className="home-footer-links">
+              <a href="#about">About</a>
+            </div>
           </div>
-        </div>
       </footer>
     </div>
   );
