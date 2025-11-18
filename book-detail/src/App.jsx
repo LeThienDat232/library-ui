@@ -60,45 +60,49 @@ function App() {
             {/* MAIN BOOK CARD */}
             <section className="book-card">
               <div className="book-card-inner">
-                {/* Cover */}
-                <div className="cover-wrapper">
-                  <div className="cover-shadow">
-                    <div className="cover-frame">
-                      <img src={bookCover} alt="Garis Waktu cover" />
+                <div className="book-hero">
+                  {/* Cover */}
+                  <div className="cover-wrapper">
+                    <div className="cover-shadow">
+                      <div className="cover-frame">
+                        <img src={bookCover} alt="Garis Waktu cover" />
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Main info */}
+                  <div className="book-main">
+                    <div className="book-heading">
+                      <h1 className="book-title">Garis Waktu</h1>
+                      <button className="icon-squared">
+                        <span>＋</span>
+                      </button>
+                    </div>
+
+                    <div className="book-meta">
+                      <span>By Fiersa Besari</span>
+                      <span className="dot">•</span>
+                      <span>1 Juli 2016</span>
+                    </div>
+
+                    <div className="book-stats">
+                      <div className="stars">
+                        <span>★</span>
+                        <span>★</span>
+                        <span>★</span>
+                        <span>★</span>
+                        <span className="star-muted">★</span>
+                      </div>
+                      <span className="stat-item">3.7M Read</span>
+                      <span className="stat-dot">•</span>
+                      <span className="stat-item">9.8K Votes</span>
+                    </div>
+
+                    <button className="primary-btn">Add To Cart</button>
                   </div>
                 </div>
 
-                {/* Main info */}
-                <div className="book-main">
-                  <div className="book-heading">
-                    <h1 className="book-title">Garis Waktu</h1>
-                    <button className="icon-squared">
-                      <span>＋</span>
-                    </button>
-                  </div>
-
-                  <div className="book-meta">
-                    <span>By Fiersa Besari</span>
-                    <span className="dot">•</span>
-                    <span>1 Juli 2016</span>
-                  </div>
-
-                  <div className="book-stats">
-                    <div className="stars">
-                      <span>★</span>
-                      <span>★</span>
-                      <span>★</span>
-                      <span>★</span>
-                      <span className="star-muted">★</span>
-                    </div>
-                    <span className="stat-item">3.7M Read</span>
-                    <span className="stat-dot">•</span>
-                    <span className="stat-item">9.8K Votes</span>
-                  </div>
-
-                  <button className="primary-btn">Add To Cart</button>
-
+                <div className="book-body">
                   <div className="book-section">
                     <h3 className="section-title">Brief Description</h3>
                     <p className="section-text">

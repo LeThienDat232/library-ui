@@ -101,7 +101,6 @@ function App() {
         <div className="cart-card">
           <div className="cart-header">
             <p>Order Draft <span>{cartOrder.code}</span></p>
-            <button className="pill-btn pill-btn-primary">Checkout</button>
           </div>
           <div className="loan-items">
             {cartOrder.books.map((book) => (
@@ -123,6 +122,9 @@ function App() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="cart-footer">
+            <button className="pill-btn pill-btn-primary">Borrow</button>
           </div>
         </div>
       );
@@ -250,16 +252,18 @@ function App() {
         </div>
 
         <section className="loan-list">{renderItems()}</section>
-
-        <footer className="account-footer">
-          <span>2020 MYBOOK</span>
-          <div className="footer-links">
-            <a href="#">Explorer</a>
-            <a href="#">Shop</a>
-            <a href="#">About</a>
-          </div>
-        </footer>
       </main>
+
+      <footer className="account-footer">
+        <div className="account-footer-inner">
+          <span>2025 WEBSHELF</span>
+          <div className="account-footer-links">
+            <a href="#explorer">Explorer</a>
+            <a href="#shop">Shop</a>
+            <a href="#about">About</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

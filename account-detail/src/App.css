@@ -217,6 +217,12 @@
   color: #1f7bff;
 }
 
+.cart-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
 .loan-items {
   display: flex;
   flex-direction: column;
@@ -305,22 +311,31 @@
 }
 
 .account-footer {
-  margin-top: 18px;
+  margin-top: auto;
+  background: #1f7bff;
+  color: #fff;
+  padding: 20px 0;
+}
+
+.account-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(1.5rem, 6vw, 4rem);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  color: #9ca3af;
+  justify-content: space-between;
   font-size: 0.85rem;
 }
 
-.footer-links {
+.account-footer-links {
   display: flex;
-  gap: 18px;
+  gap: 20px;
 }
 
-.footer-links a {
-  color: inherit;
+.account-footer-links a {
+  color: #fff;
   text-decoration: none;
+  font-weight: 500;
 }
 
 @media (max-width: 960px) {
@@ -354,5 +369,11 @@
   .header-right {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .account-footer-inner {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
   }
 }
