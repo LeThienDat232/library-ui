@@ -161,7 +161,7 @@
   color: #4b5563;
 }
 
-.tabs-btn.active {
+.tabs-btn-active {
   color: #000;
   box-shadow: inset 0 -3px 0 #000;
 }

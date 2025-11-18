@@ -1,5 +1,5 @@
 import { useState } from "react";
-import "./App.css";
+import styles from "./AccountPage.module.css";
 import webshelfLogo from "./assets/webshelf-logo.png";
 
 const cartOrder = {
@@ -94,40 +94,42 @@ const historyOrders = [
   },
 ];
 
-function App() {
+function AccountPage() {
   const [activeTab, setActiveTab] = useState("reading"); // 'cart' | 'reading' | 'history'
+  const getTabButtonClass = (tab) =>
+    `${styles['tabs-btn']} ${activeTab === tab ? styles['tabs-btn-active'] : ''}`.trim();
 
   const renderItems = () => {
     // --- CART = simple list of books ---
     if (activeTab === 'cart') {
       return (
-        <div className="cart-card">
-          <div className="cart-header">
+        <div className={styles['cart-card']}>
+          <div className={styles['cart-header']}>
             <p>Order Draft <span>{cartOrder.code}</span></p>
           </div>
-          <div className="loan-items">
+          <div className={styles['loan-items']}>
             {cartOrder.books.map((book) => (
-              <div className="loan-item" key={book.id}>
-                <img className="loan-cover" src={book.cover} alt={book.title} />
-                <div className="loan-info">
+              <div className={styles['loan-item']} key={book.id}>
+                <img className={styles['loan-cover']} src={book.cover} alt={book.title} />
+                <div className={styles['loan-info']}>
                   <h3>{book.title}</h3>
-                  <p className="loan-author">By {book.author}</p>
-                  <p className="loan-desc">
+                  <p className={styles['loan-author']}>By {book.author}</p>
+                  <p className={styles['loan-desc']}>
                     Lorem ipsum dolor sit amet, consectetur adipiscing elit. Purus morbi eleifend enim, tristique.
                   </p>
-                  <div className="cart-row">
-                    <p className="loan-qty">Qty: {book.qty}</p>
-                    <div className="cart-actions">
-                      <button className="pill-btn pill-btn-outline">Edit</button>
-                      <button className="pill-btn pill-btn-outline">Remove</button>
+                  <div className={styles['cart-row']}>
+                    <p className={styles['loan-qty']}>Qty: {book.qty}</p>
+                    <div className={styles['cart-actions']}>
+                      <button className={`${styles['pill-btn']} ${styles['pill-btn-outline']}`}>Edit</button>
+                      <button className={`${styles['pill-btn']} ${styles['pill-btn-outline']}`}>Remove</button>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <div className="cart-footer">
-            <button className="pill-btn pill-btn-primary">Borrow</button>
+          <div className={styles['cart-footer']}>
+            <button className={`${styles['pill-btn']} ${styles['pill-btn-primary']}`}>Borrow</button>
           </div>
         </div>
       );
@@ -137,48 +139,54 @@ function App() {
     if (activeTab === 'reading') {
       return readingOrders.map((order) => {
         const isReserved = order.status === "reserved";
+        const stateClass = isReserved
+          ? styles['loan-card-reserved']
+          : styles['loan-card-borrowing'];
+        const statusClass = isReserved
+          ? styles['status-reserved']
+          : styles['status-borrowing'];
         return (
         <div
-          className={`loan-card ${isReserved ? "loan-card-reserved" : "loan-card-borrowing"}`}
+          className={`${styles['loan-card']} ${stateClass}`}
           key={order.code}
         >
-          <div className="loan-items">
+          <div className={styles['loan-items']}>
             {order.items.map((item) => (
-              <div className="loan-item" key={item.id}>
-                <img className="loan-cover" src={item.cover} alt={item.title} />
-                <div className="loan-info">
+              <div className={styles['loan-item']} key={item.id}>
+                <img className={styles['loan-cover']} src={item.cover} alt={item.title} />
+                <div className={styles['loan-info']}>
                   <h3>{item.title}</h3>
-                  <p className="loan-author">By {item.author}</p>
-                  <p className="loan-desc">
+                  <p className={styles['loan-author']}>By {item.author}</p>
+                  <p className={styles['loan-desc']}>
                     Lorem ipsum dolor sit amet, consectetur adipiscing elit. Purus morbi eleifend
                     enim, tristique.
                   </p>
-                  <p className="loan-qty">Qty: {item.qty}</p>
+                  <p className={styles['loan-qty']}>Qty: {item.qty}</p>
                 </div>
               </div>
             ))}
           </div>
-          <div className="loan-card-right">
-            <span className={`status-pill status-${order.status}`}>
+          <div className={styles['loan-card-right']}>
+            <span className={`${styles['status-pill']} ${statusClass}`}>
               {isReserved ? "Reserved" : "Borrowing"}
             </span>
-            <p className="loan-return">
+            <p className={styles['loan-return']}>
               {isReserved ? "Pickup By: " : "Return By: "}
               <span>{isReserved ? order.pickupBy : order.returnBy}</span>
             </p>
             {isReserved && (
-              <p className="loan-qr">
+              <p className={styles['loan-qr']}>
                 QR Ref: <span>{order.qrRef}</span>
               </p>
             )}
-            <p className="loan-id">{order.code}</p>
+            <p className={styles['loan-id']}>{order.code}</p>
             {isReserved ? (
-              <div className="loan-actions">
-                <button className="pill-btn pill-btn-outline">Show QR Code</button>
-                <button className="pill-btn pill-btn-danger">Cancel Reservation</button>
+              <div className={styles['loan-actions']}>
+                <button className={`${styles['pill-btn']} ${styles['pill-btn-outline']}`}>Show QR Code</button>
+                <button className={`${styles['pill-btn']} ${styles['pill-btn-danger']}`}>Cancel Reservation</button>
               </div>
             ) : (
-              <button className="pill-btn pill-btn-primary">Renew</button>
+              <button className={`${styles['pill-btn']} ${styles['pill-btn-primary']}`}>Renew</button>
             )}
           </div>
         </div>
@@ -188,52 +196,52 @@ function App() {
 
     // --- HISTORY = past loans with multiple items ---
     return historyOrders.map((order) => (
-      <div className="loan-card" key={order.code}>
-        <div className="loan-items">
+      <div className={styles['loan-card']} key={order.code}>
+        <div className={styles['loan-items']}>
           {order.items.map((item) => (
-            <div className="loan-item" key={item.id}>
-              <img className="loan-cover" src={item.cover} alt={item.title} />
-              <div className="loan-info">
+            <div className={styles['loan-item']} key={item.id}>
+              <img className={styles['loan-cover']} src={item.cover} alt={item.title} />
+              <div className={styles['loan-info']}>
                 <h3>{item.title}</h3>
-                <p className="loan-author">By {item.author}</p>
-                <p className="loan-desc">
+                <p className={styles['loan-author']}>By {item.author}</p>
+                <p className={styles['loan-desc']}>
                   Lorem ipsum dolor sit amet, consectetur adipiscing elit. Purus morbi eleifend
                   enim, tristique.
                 </p>
-                <p className="loan-qty">Qty: {item.qty}</p>
+                <p className={styles['loan-qty']}>Qty: {item.qty}</p>
               </div>
             </div>
           ))}
         </div>
-        <div className="loan-card-right">
-          <p className="loan-return">
+        <div className={styles['loan-card-right']}>
+          <p className={styles['loan-return']}>
             Returned On: <span>{order.returnedOn}</span>
           </p>
-          <p className="loan-id">{order.code}</p>
-          <button className="pill-btn pill-btn-outline">Write Review</button>
+          <p className={styles['loan-id']}>{order.code}</p>
+          <button className={`${styles['pill-btn']} ${styles['pill-btn-outline']}`}>Write Review</button>
         </div>
       </div>
     ))
   }
 
   return (
-    <div className="account-page">
+    <div className={styles['account-page']}>
       {/* Top blue header */}
-      <header className="account-header">
-        <div className="account-header-inner">
-          <div className="brand-block">
+      <header className={styles['account-header']}>
+        <div className={styles['account-header-inner']}>
+          <div className={styles['brand-block']}>
             <img src={webshelfLogo} alt="Webshelf logo" />
-            <div className="brand-copy">
-              <span className="brand-name">WEBSHELF</span>
+            <div className={styles['brand-copy']}>
+              <span className={styles['brand-name']}>WEBSHELF</span>
             
             </div>
           </div>
 
-          <div className="header-right">
-            <nav className="top-nav">
+          <div className={styles['header-right']}>
+            <nav className={styles['top-nav']}>
               <a href="#">Account</a>
             </nav>
-            <div className="user-avatar">
+            <div className={styles['user-avatar']}>
               <span />
             </div>
           </div>
@@ -241,47 +249,47 @@ function App() {
       </header>
 
       {/* Main account area */}
-      <main className="account-main">
-        <section className="tabs-card">
+      <main className={styles['account-main']}>
+        <section className={styles['tabs-card']}>
           <button
-            className={`tabs-btn ${activeTab === "cart" ? "active" : ""}`}
+            className={getTabButtonClass("cart")}
             onClick={() => setActiveTab("cart")}
           >
             Your Cart
           </button>
-          <span className="tabs-divider" />
+          <span className={styles['tabs-divider']} />
           <button
-            className={`tabs-btn ${activeTab === "reading" ? "active" : ""}`}
+            className={getTabButtonClass("reading")}
             onClick={() => setActiveTab("reading")}
           >
             Reading Books
           </button>
-          <span className="tabs-divider" />
+          <span className={styles['tabs-divider']} />
           <button
-            className={`tabs-btn ${activeTab === "history" ? "active" : ""}`}
+            className={getTabButtonClass("history")}
             onClick={() => setActiveTab("history")}
           >
             History
           </button>
         </section>
 
-        <div className="search-wrapper">
-          <span className="search-icon">🔍</span>
+        <div className={styles['search-wrapper']}>
+          <span className={styles['search-icon']}>🔍</span>
           <input
             type="text"
-            className="search-input"
+            className={styles['search-input']}
             placeholder="Search Order"
             aria-label="Search order"
           />
         </div>
 
-        <section className="loan-list">{renderItems()}</section>
+        <section className={styles['loan-list']}>{renderItems()}</section>
       </main>
 
-      <footer className="account-footer">
-        <div className="account-footer-inner">
+      <footer className={styles['account-footer']}>
+        <div className={styles['account-footer-inner']}>
           <span>2025 WEBSHELF</span>
-          <div className="account-footer-links">
+          <div className={styles['account-footer-links']}>
             <a href="#about">About</a>
           </div>
         </div>
@@ -290,4 +298,4 @@ function App() {
   );
 }
 
-export default App;
+export default AccountPage;

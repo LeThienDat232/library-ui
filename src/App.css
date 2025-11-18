@@ -104,6 +104,19 @@
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
+.home-avatar-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
 .home-hero-body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -235,6 +248,9 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  cursor: pointer;
+  border: none;
+  outline: none;
 }
 
 .home-cover {

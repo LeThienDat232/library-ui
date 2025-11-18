@@ -1,19 +1,20 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import webshelfLogo from './assets/webshelf-logo.png'
-import './App.css'
+import styles from './App.module.css'
 
-function App() {
+function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   return (
-    <main className="sign-up-shell">
-      <section className="hero-pane" aria-describedby="hero-caption">
+    <main className={styles['sign-up-shell']}>
+      <section className={styles['hero-pane']} aria-describedby="hero-caption">
         <div
-          className="hero-image"
+          className={styles['hero-image']}
           role="img"
           aria-label="Sailboat and lighthouse on a calm sea at sunset"
         />
-        <p className="photo-credit" id="hero-caption">
+        <p className={styles['photo-credit']} id="hero-caption">
           Photo by{' '}
           <a
             href="https://unsplash.com/photos/boat-on-sea-water-near-mountain-during-sunrise-LBoZ--DnO8w"
@@ -25,16 +26,16 @@ function App() {
         </p>
       </section>
 
-      <section className="form-pane">
-        <header className="brand" aria-label="Webshelf brand">
-          <img src={webshelfLogo} alt="Webshelf logo" className="brand-logo" />
-          <p className="brand-title">WEBSHELF</p>
+      <section className={styles['form-pane']}>
+        <header className={styles.brand} aria-label="Webshelf brand">
+          <img src={webshelfLogo} alt="Webshelf logo" className={styles['brand-logo']} />
+          <p className={styles['brand-title']}>WEBSHELF</p>
         </header>
 
-        <h1 className="form-heading">Ready to turn the first page?</h1>
+        <h1 className={styles['form-heading']}>Ready to turn the first page?</h1>
 
-        <form className="sign-up-form">
-          <label className="field">
+        <form className={styles['sign-up-form']}>
+          <label className={styles.field}>
             <span>Email or phone number</span>
             <input
               type="text"
@@ -45,7 +46,7 @@ function App() {
             />
           </label>
 
-          <label className="field">
+          <label className={styles.field}>
             <span>Username</span>
             <input
               type="text"
@@ -56,7 +57,7 @@ function App() {
             />
           </label>
 
-          <label className="field">
+          <label className={styles.field}>
             <span>Password</span>
             <input
               type="password"
@@ -67,9 +68,9 @@ function App() {
             />
           </label>
 
-          <label className="field password-field">
+          <label className={`${styles.field} ${styles['password-field']}`}>
             <span>Confirm password</span>
-            <div className="password-input">
+            <div className={styles['password-input']}>
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
@@ -80,7 +81,7 @@ function App() {
 
               <button
                 type="button"
-                className="toggle-password"
+                className={styles['toggle-password']}
                 aria-label={`${showConfirmPassword ? 'Hide' : 'Show'} password`}
                 aria-pressed={showConfirmPassword}
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
@@ -108,20 +109,20 @@ function App() {
             </div>
           </label>
 
-          <button type="submit" className="primary-btn">
+          <button type="submit" className={styles['primary-btn']}>
             Sign up
           </button>
         </form>
 
-        <div className="signin-cta">
+        <div className={styles['signin-cta']}>
           <span>Already have an account?</span>
-          <a href="#" className="link-muted">
+          <Link to="/login" className={styles['link-muted']}>
             Sign in now
-          </a>
+          </Link>
         </div>
       </section>
     </main>
   )
 }
 
-export default App
+export default RegisterPage

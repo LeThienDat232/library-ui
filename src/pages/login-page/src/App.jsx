@@ -1,19 +1,29 @@
 import { useState } from 'react'
-import './App.css'
+import { Link, useNavigate } from 'react-router-dom'
+import styles from './App.module.css'
 import webshelfLogo from './assets/webshelf-logo.png'
 
-function App() {
+function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
+  const navigate = useNavigate()
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (typeof onLogin === 'function') {
+      onLogin()
+    }
+    navigate('/')
+  }
 
   return (
-    <main className="sign-in-shell">
-      <section className="hero-pane" aria-describedby="hero-caption">
+    <main className={styles['sign-in-shell']}>
+      <section className={styles['hero-pane']} aria-describedby="hero-caption">
         <div
-          className="hero-image"
+          className={styles['hero-image']}
           role="img"
           aria-label="Sailboat and lighthouse on a calm sea at sunset"
         />
-        <p className="photo-credit" id="hero-caption">
+        <p className={styles['photo-credit']} id="hero-caption">
           Photo by{' '}
           <a
             href="https://unsplash.com/photos/boat-on-sea-water-near-mountain-during-sunrise-LBoZ--DnO8w"
@@ -25,16 +35,16 @@ function App() {
         </p>
       </section>
 
-      <section className="form-pane">
-        <header className="brand">
-          <img src={webshelfLogo} alt="Webshelf logo" className="brand-logo" />
-          <p className="brand-title">WEBSHELF</p>
+      <section className={styles['form-pane']}>
+        <header className={styles.brand}>
+          <img src={webshelfLogo} alt="Webshelf logo" className={styles['brand-logo']} />
+          <p className={styles['brand-title']}>WEBSHELF</p>
         </header>
 
-        <h1 className="welcome-heading">Nice to see you again</h1>
+        <h1 className={styles['welcome-heading']}>Nice to see you again</h1>
 
-        <form className="sign-in-form">
-          <label className="field">
+        <form className={styles['sign-in-form']} onSubmit={handleSubmit}>
+          <label className={styles.field}>
             <span>Login</span>
             <input
               type="text"
@@ -45,9 +55,9 @@ function App() {
             />
           </label>
 
-          <label className="field password-field">
+          <label className={`${styles.field} ${styles['password-field']}`}>
             <span>Password</span>
-            <div className="password-input">
+            <div className={styles['password-input']}>
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="password"
@@ -57,7 +67,7 @@ function App() {
               />
               <button
                 type="button"
-                className="toggle-password"
+                className={styles['toggle-password']}
                 aria-label={`${showPassword ? 'Hide' : 'Show'} password`}
                 aria-pressed={showPassword}
                 onClick={() => setShowPassword((prev) => !prev)}
@@ -85,28 +95,28 @@ function App() {
             </div>
           </label>
 
-          <div className="form-row">
-            <label className="checkbox">
+          <div className={styles['form-row']}>
+            <label className={styles.checkbox}>
               <input type="checkbox" name="remember" />
               <span>Keep me signed in</span>
             </label>
-            <a className="link-muted" href="#">
+            <a className={styles['link-muted']} href="#">
               Forgot password?
             </a>
           </div>
 
-          <button type="submit" className="primary-btn">
+          <button type="submit" className={styles['primary-btn']}>
             Sign in
           </button>
         </form>
 
-        <div className="sign-up-cta">
+        <div className={styles['sign-up-cta']}>
           <span>Don&apos;t have an account?</span>
-          <a href="#">Sign up now</a>
+          <Link to="/register">Sign up now</Link>
         </div>
       </section>
     </main>
   )
 }
 
-export default App
+export default LoginPage
