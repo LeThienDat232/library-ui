@@ -205,7 +205,7 @@ function App() {
       {/* FOOTER */}
       <footer className="home-footer">
         <div className="home-footer-inner">
-          <span>2020 MYBOOK</span>
+          <span>2025 WEBSHELF</span>
           <div className="home-footer-links">
             <a href="#explorer">Explorer</a>
             <a href="#shop">Shop</a>

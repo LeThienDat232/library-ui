@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #0f172a;
 }
 
@@ -13,62 +13,53 @@
 }
 
 .account-header {
-  background: linear-gradient(135deg, #1f7bff, #4ac3ff);
-  padding: 28px clamp(1.5rem, 6vw, 4rem) 90px;
-  border-bottom-left-radius: 48px;
-  border-bottom-right-radius: 48px;
-  color: #fff;
+  background: #fff;
+  padding: 24px clamp(1.5rem, 6vw, 4rem) 70px;
+  color: #0f172a;
   position: relative;
+  border-bottom-left-radius: 44px;
+  border-bottom-right-radius: 44px;
+  box-shadow: 0 15px 35px rgba(15, 23, 42, 0.1);
   overflow: hidden;
-  box-shadow: 0 25px 55px rgba(15, 23, 42, 0.2);
 }
 
 .account-header::after {
-  content: '';
+  content: "";
   position: absolute;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  border: 12px solid rgba(255, 255, 255, 0.35);
-  top: -80px;
-  right: -60px;
-}
-
-.account-header::before {
-  content: '';
-  position: absolute;
-  width: 160px;
-  height: 160px;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.7) 2px, transparent 2px);
-  background-size: 16px 16px;
-  left: 60px;
-  bottom: 30px;
-  opacity: 0.7;
+  width: 240px;
+  height: 240px;
+  background: linear-gradient(135deg, #1f7bff, #3aa7ff);
+  right: -120px;
+  top: -40px;
+  border-radius: 60% 0 0 60%;
 }
 
 .account-header-inner {
   position: relative;
   z-index: 1;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   gap: 18px;
 }
 
 .brand-block {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 1rem;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(15, 23, 42, 0.2);
 }
 
 .brand-block img {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  padding: 6px;
-  background: rgba(255, 255, 255, 0.9);
+  width: 64px;
+  height: 64px;
+  display: block;
   object-fit: contain;
-  box-shadow: 0 18px 35px rgba(13, 32, 85, 0.25);
 }
 
 .brand-copy {
@@ -79,19 +70,19 @@
 
 .brand-name {
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
+  font-size: 1.5rem;
 }
 
 .brand-tagline {
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.85rem;
+  color: #6c7488;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: 18px;
 }
 
 .top-nav {
@@ -101,20 +92,20 @@
 }
 
 .top-nav a {
-  color: #f1f7ff;
+  color: #1f7bff;
   text-decoration: none;
   position: relative;
-  padding-bottom: 4px;
+  padding-bottom: 3px;
 }
 
 .top-nav a::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   bottom: 0;
   width: 100%;
   height: 2px;
-  background: #fff;
+  background: #1f7bff;
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.2s ease;
@@ -127,96 +118,103 @@
 .user-avatar {
   width: 42px;
   height: 42px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: #f4f6ff;
   display: grid;
   place-items: center;
-  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.15);
 }
 
 .user-avatar span {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: 2px solid #1f7bff;
 }
 
 .account-main {
+  padding: 30px clamp(1.5rem, 6vw, 4rem) 48px;
   flex: 1;
-  padding: 32px clamp(1.5rem, 6vw, 4rem) 48px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
 }
 
 .tabs-card {
+  width: min(100%, 900px);
+  margin: 0 auto;
   background: #fff;
   border-radius: 24px;
   display: flex;
   align-items: stretch;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
 }
 
 .tabs-btn {
   flex: 1;
-  padding: 20px 24px;
   border: none;
   background: transparent;
+  padding: 18px 24px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 1.05rem;
   cursor: pointer;
   color: #4b5563;
 }
 
 .tabs-btn.active {
-  color: #1f7bff;
-  box-shadow: inset 0 -3px 0 #1f7bff;
+  color: #000;
+  box-shadow: inset 0 -3px 0 #000;
 }
 
 .tabs-divider {
   width: 1px;
-  background: #e4e7ef;
+  background: #e5e7eb;
 }
 
 .search-wrapper {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #fff;
-  border-radius: 16px;
+  background: #fdfdfd;
+  border-radius: 8px;
   padding: 12px 16px;
-  border: 1px solid #e4e7ef;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  border: 1px solid #d9dce5;
+  box-shadow: 0 12px 25px rgba(15, 23, 42, 0.08);
 }
 
 .search-icon {
   font-size: 1rem;
-  color: #94a3b8;
+  color: #9ca3af;
 }
 
 .search-input {
-  flex: 1;
   border: none;
   background: transparent;
+  flex: 1;
   font-size: 0.95rem;
   outline: none;
 }
 
-.loan-list {
+.cart-card,
+.loan-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 24px 28px;
+  box-shadow: 0 25px 55px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-.loan-card {
-  background: #fff;
-  border-radius: 22px;
-  padding: 22px 28px;
+.cart-header {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
-  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.08);
+  align-items: center;
+  font-weight: 600;
+}
+
+.cart-header span {
+  color: #1f7bff;
 }
 
 .loan-items {
@@ -227,7 +225,7 @@
 
 .loan-item {
   display: flex;
-  gap: 18px;
+  gap: 16px;
 }
 
 .loan-cover {
@@ -235,7 +233,6 @@
   height: 130px;
   border-radius: 12px;
   object-fit: cover;
-  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
 }
 
 .loan-info h3 {
@@ -244,15 +241,14 @@
 }
 
 .loan-author {
-  margin: 2px 0 8px;
-  font-size: 0.9rem;
+  margin: 2px 0 6px;
   color: #6c7488;
 }
 
 .loan-desc {
-  margin: 0 0 6px;
-  font-size: 0.9rem;
+  margin: 0 0 8px;
   color: #4a5564;
+  font-size: 0.92rem;
 }
 
 .loan-qty {
@@ -261,23 +257,27 @@
 }
 
 .loan-id {
-  margin-top: 4px;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: #9ca3af;
+}
+
+.loan-card {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 20px;
 }
 
 .loan-card-right {
+  min-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   justify-content: space-between;
-  min-width: 200px;
 }
 
 .loan-return {
   margin: 0;
   color: #4a5564;
-  font-size: 0.95rem;
 }
 
 .loan-return span {
@@ -287,16 +287,15 @@
 .pill-btn {
   border-radius: 999px;
   padding: 10px 24px;
-  font-weight: 600;
   border: none;
   cursor: pointer;
-  margin-top: 10px;
+  font-weight: 600;
 }
 
 .pill-btn-primary {
   background: #ff9f1c;
   color: #fff;
-  box-shadow: 0 15px 30px rgba(255, 159, 28, 0.4);
+  box-shadow: 0 12px 25px rgba(255, 159, 28, 0.4);
 }
 
 .pill-btn-outline {
@@ -306,7 +305,7 @@
 }
 
 .account-footer {
-  margin-top: 22px;
+  margin-top: 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -324,17 +323,9 @@
   text-decoration: none;
 }
 
-.footer-links a:hover {
-  text-decoration: underline;
-}
-
 @media (max-width: 960px) {
-  .account-header {
-    padding: 24px 24px 80px;
-  }
-
-  .account-main {
-    padding: 24px;
+  .account-header::after {
+    display: none;
   }
 
   .loan-card {
