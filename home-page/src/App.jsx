@@ -194,7 +194,7 @@ function App() {
                     Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                     Purus morbi eleifend enim, tristique.
                   </p>
-                  <button className="home-ghost-btn">Buy Now</button>
+                  <button className="home-ghost-btn">Borrow Now</button>
                 </div>
               </article>
             ))}
