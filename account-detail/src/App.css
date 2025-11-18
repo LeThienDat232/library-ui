@@ -273,12 +273,30 @@
   gap: 20px;
 }
 
+.loan-card-reserved {
+  border-left: 4px solid #2563eb;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), #fff);
+}
+
+.loan-card-borrowing {
+  border-left: 4px solid #ff9f1c;
+}
+
 .loan-card-right {
   min-width: 200px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   justify-content: space-between;
+  gap: 10px;
+  text-align: right;
+}
+
+.loan-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .loan-return {
@@ -288,6 +306,36 @@
 
 .loan-return span {
   font-weight: 700;
+}
+
+.loan-qr {
+  margin: 0;
+  color: #4a5564;
+  font-size: 0.9rem;
+}
+
+.loan-qr span {
+  font-weight: 600;
+  color: #111827;
+}
+
+.status-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.status-reserved {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+.status-borrowing {
+  background: rgba(255, 159, 28, 0.15);
+  color: #c2410c;
 }
 
 .pill-btn {
@@ -308,6 +356,12 @@
   background: transparent;
   border: 1px solid #1f7bff;
   color: #1f7bff;
+}
+
+.pill-btn-danger {
+  background: transparent;
+  border: 1px solid #dc2626;
+  color: #dc2626;
 }
 
 .account-footer {
@@ -349,6 +403,7 @@
 
   .loan-card-right {
     align-items: flex-start;
+    text-align: left;
   }
 }
 

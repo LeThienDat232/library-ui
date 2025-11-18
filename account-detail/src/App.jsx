@@ -28,7 +28,9 @@ const cartOrder = {
 const readingOrders = [
   {
     code: "#12000",
-    returnBy: "Feb 22, 2025",
+    status: "reserved",
+    pickupBy: "Feb 22, 2025",
+    qrRef: "#QR4521",
     items: [
       {
         id: "B1",
@@ -50,6 +52,7 @@ const readingOrders = [
   },
   {
     code: "#12001",
+    status: "borrowing",
     returnBy: "Mar 22, 2025",
     items: [
       {
@@ -132,8 +135,13 @@ function App() {
 
     // --- READING BOOKS = loans with multiple items ---
     if (activeTab === 'reading') {
-      return readingOrders.map((order) => (
-        <div className="loan-card" key={order.code}>
+      return readingOrders.map((order) => {
+        const isReserved = order.status === "reserved";
+        return (
+        <div
+          className={`loan-card ${isReserved ? "loan-card-reserved" : "loan-card-borrowing"}`}
+          key={order.code}
+        >
           <div className="loan-items">
             {order.items.map((item) => (
               <div className="loan-item" key={item.id}>
@@ -151,14 +159,31 @@ function App() {
             ))}
           </div>
           <div className="loan-card-right">
+            <span className={`status-pill status-${order.status}`}>
+              {isReserved ? "Reserved" : "Borrowing"}
+            </span>
             <p className="loan-return">
-              Return By: <span>{order.returnBy}</span>
+              {isReserved ? "Pickup By: " : "Return By: "}
+              <span>{isReserved ? order.pickupBy : order.returnBy}</span>
             </p>
+            {isReserved && (
+              <p className="loan-qr">
+                QR Ref: <span>{order.qrRef}</span>
+              </p>
+            )}
             <p className="loan-id">{order.code}</p>
-            <button className="pill-btn pill-btn-primary">Renew</button>
+            {isReserved ? (
+              <div className="loan-actions">
+                <button className="pill-btn pill-btn-outline">Show QR Code</button>
+                <button className="pill-btn pill-btn-danger">Cancel Reservation</button>
+              </div>
+            ) : (
+              <button className="pill-btn pill-btn-primary">Renew</button>
+            )}
           </div>
         </div>
-      ))
+        )
+      })
     }
 
     // --- HISTORY = past loans with multiple items ---
