@@ -1,14 +1,50 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./BookDetail.module.css";
 
 const defaultCover =
   "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=480&q=60";
 const fallbackBook = {
+  book_id: "fallback",
   title: "Garis Waktu",
   author: "Fiersa Besari",
-  cover: defaultCover,
+  cover_url: defaultCover,
+  review_count: 0,
+  avg_rating: null,
+  inventory: { total: 0, available: 0 },
+  genres: [{ name: "General" }],
 };
+
+const defaultSuggestions = [
+  {
+    title: "All The Light We Cannot See",
+    author: "Anthony Doerr",
+    cover_url:
+      "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=320&q=60",
+    review_count: 0,
+  },
+  {
+    title: "Rich People Problems",
+    author: "Kevin Kwan",
+    cover_url:
+      "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=320&q=60",
+    review_count: 0,
+  },
+  {
+    title: "Where The Crawdads Sing",
+    author: "Delia Owens",
+    cover_url:
+      "https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=320&q=60",
+    review_count: 0,
+  },
+  {
+    title: "Crazy Rich Asians",
+    author: "Kevin Kwan",
+    cover_url:
+      "https://images.unsplash.com/photo-1524253482453-3fed8d2fe12b?auto=format&fit=crop&w=320&q=60",
+    review_count: 0,
+  },
+];
 
 const currentReaders = [
   "https://randomuser.me/api/portraits/women/45.jpg",
@@ -16,40 +52,31 @@ const currentReaders = [
   "https://randomuser.me/api/portraits/women/12.jpg",
 ];
 
-const suggestions = [
-  {
-    title: "All The Light We Cannot See",
-    author: "Anthony Doerr",
-    votes: "1,988,288 votes",
-    cover:
-      "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=320&q=60",
-  },
-  {
-    title: "Rich People Problems",
-    author: "Kevin Kwan",
-    votes: "1,988,288 votes",
-    cover:
-      "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=320&q=60",
-  },
-  {
-    title: "Where The Crawdads Sing",
-    author: "Delia Owens",
-    votes: "1,988,288 votes",
-    cover:
-      "https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=320&q=60",
-  },
-  {
-    title: "Crazy Rich Asians",
-    author: "Kevin Kwan",
-    votes: "1,988,288 votes",
-    cover:
-      "https://images.unsplash.com/photo-1524253482453-3fed8d2fe12b?auto=format&fit=crop&w=320&q=60",
-  },
-];
-
-function BookDetailPage({ book }) {
+function BookDetailPage({ book, books = [] }) {
   const navigate = useNavigate();
   const displayBook = book ?? fallbackBook;
+  const genres = displayBook.genres ?? [];
+  const primaryGenre = genres[0]?.name;
+  const ratingValue = Number(displayBook.avg_rating ?? 0);
+  const reviewCount = displayBook.review_count ?? 0;
+  const availableCount = displayBook.inventory?.available ?? 0;
+  const totalCount = displayBook.inventory?.total ?? 0;
+
+  const youMightAlsoLike = useMemo(() => {
+    if (!displayBook) return [];
+    const sameAuthor = books.filter(
+      (item) =>
+        item.book_id !== displayBook.book_id && item.author === displayBook.author
+    );
+    const backupList = books.filter(
+      (item) => item.book_id !== displayBook.book_id && item.author !== displayBook.author
+    );
+    const combined = sameAuthor.length > 0 ? sameAuthor : backupList;
+    if (!combined.length) {
+      return defaultSuggestions;
+    }
+    return combined.slice(0, 4);
+  }, [books, displayBook]);
 
   return (
     <div className={styles.app}>
@@ -80,7 +107,7 @@ function BookDetailPage({ book }) {
                     <div className={styles['cover-shadow']}>
                       <div className={styles['cover-frame']}>
                         <img
-                          src={displayBook.cover || defaultCover}
+                          src={displayBook.cover_url || displayBook.cover || defaultCover}
                           alt={`${displayBook.title} cover`}
                         />
                       </div>
@@ -99,7 +126,7 @@ function BookDetailPage({ book }) {
                     <div className={styles['book-meta']}>
                       <span>By {displayBook.author}</span>
                       <span className={styles.dot}>•</span>
-                      <span>1 Juli 2016</span>
+                      <span>{primaryGenre ?? "Genre unknown"}</span>
                     </div>
 
                     <div className={styles['book-stats']}>
@@ -110,9 +137,13 @@ function BookDetailPage({ book }) {
                         <span>★</span>
                         <span className={styles['star-muted']}>★</span>
                       </div>
-                      <span className={styles['stat-item']}>3.7M Read</span>
+                      <span className={styles['stat-item']}>
+                        {ratingValue ? `${ratingValue.toFixed(1)} avg rating` : "Not yet rated"}
+                      </span>
                       <span className={styles['stat-dot']}>•</span>
-                      <span className={styles['stat-item']}>9.8K Votes</span>
+                      <span className={styles['stat-item']}>
+                        {reviewCount} review{reviewCount === 1 ? "" : "s"}
+                      </span>
                     </div>
 
                     <button className={styles['primary-btn']}>Add To Cart</button>
@@ -123,40 +154,54 @@ function BookDetailPage({ book }) {
                   <div className={styles['book-section']}>
                     <h3 className={styles['section-title']}>Brief Description</h3>
                     <p className={styles['section-text']}>
-                      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                      Varius nisl sed sit aliquet nullam pretium. Velit vel
-                      aliquam amet augue. Risus id purus dolor dolor. Sagittis
-                      at vulputate rhoncus pharetra purus vitae ac. Sit nam
-                      eleifend mauris, duis mattis eget. Viverra accumsan
-                      elementum vehicula orci magna.
+                      {displayBook.description ??
+                        "Discover more about this title directly from our library catalog. Detailed descriptions will appear here once available."}
                     </p>
                   </div>
 
-                  <div className={styles['book-tags']}>
-                    <span className={styles.chip}>Biografi</span>
-                    <span className={styles.chip}>AutoBiografi</span>
-                    <span className={styles.chip}>Memoar</span>
-                  </div>
+                    <div className={styles['book-tags']}>
+                      {genres.length > 0 ? (
+                        genres.map((genre) => (
+                          <span className={styles.chip} key={genre.genre_id ?? genre.name}>
+                            {genre.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className={styles.chip}>General</span>
+                      )}
+                    </div>
 
                   <div className={`${styles['book-section']} ${styles['details-grid']}`}>
                     <h3 className={styles['section-title']}>Book Details</h3>
                     <div className={styles['detail-columns']}>
                       <div className={styles['detail-column']}>
-                        <DetailRow label="Penerbit" value="MediaKita" />
-                        <DetailRow label="Diterbitkan Tanggal" value="1 Juli 2016" />
-                        <DetailRow label="Bahasa" value="Indonesia" />
+                        <DetailRow label="Book ID" value={displayBook.book_id} />
+                        <DetailRow label="Genre" value={primaryGenre ?? "Unknown"} />
+                        <DetailRow
+                          label="Availability"
+                          value={`${availableCount} of ${totalCount}`}
+                        />
                       </div>
                       <div className={styles['detail-column']}>
-                        <DetailRow label="Genre" value="Fiksi / Romance / Umum" />
-                        <DetailRow label="Jumlah Halaman" value="210 Halaman" />
-                        <DetailRow label="Keterangan" value="Selesai" />
+                        <DetailRow
+                          label="Average Rating"
+                          value={
+                            ratingValue ? `${ratingValue.toFixed(1)} / 5` : "Not yet rated"
+                          }
+                        />
+                        <DetailRow label="Reviews" value={reviewCount} />
+                        <DetailRow
+                          label="Status"
+                          value={availableCount > 0 ? "Available" : "Out of stock"}
+                        />
                       </div>
                     </div>
                   </div>
 
                   <div className={styles['currently-reading']}>
                     <p className={styles['section-text']}>
-                      <strong>2021</strong> people are currently reading
+                      <strong>{Math.max(totalCount - availableCount, 0)}</strong>{" "}
+                      copies currently on loan
                     </p>
                     <div className={styles['avatar-row']}>
                       {currentReaders.map((reader, index) => (
@@ -224,8 +269,8 @@ function BookDetailPage({ book }) {
             <section className={styles['recommend-card']}>
               <h2 className={styles['recommend-title']}>You Might Also Like</h2>
 
-              {suggestions.map((suggestion) => (
-                <SuggestionItem key={suggestion.title} {...suggestion} />
+              {youMightAlsoLike.map((suggestion) => (
+                <SuggestionItem key={suggestion.book_id} {...suggestion} />
               ))}
             </section>
 
@@ -305,11 +350,11 @@ function ReviewItem({ title, date, rating }) {
   );
 }
 
-function SuggestionItem({ title, author, votes, cover }) {
+function SuggestionItem({ title, author, review_count, cover_url, cover }) {
   return (
     <div className={styles['suggestion-item']}>
       <div className={styles['suggestion-cover']}>
-        <img src={cover} alt={title} />
+        <img src={cover_url || cover || defaultCover} alt={title} />
       </div>
       <div className={styles['suggestion-info']}>
         <h3 className={styles['suggestion-title']}>{title}</h3>
@@ -322,11 +367,12 @@ function SuggestionItem({ title, author, votes, cover }) {
             <span>★</span>
             <span className={styles['star-muted']}>★</span>
           </div>
-          <span className={styles['suggestion-votes']}>{votes}</span>
+          <span className={styles['suggestion-votes']}>
+            {review_count ?? 0} review{(review_count ?? 0) === 1 ? "" : "s"}
+          </span>
         </div>
         <p className={styles['suggestion-desc']}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Purus morbi
-          eleifend enim.
+          {`More from ${author}. Discover additional favorites from our catalog.`}
         </p>
       </div>
     </div>

@@ -1,81 +1,112 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../App.css";
 import webshelfLogo from "../assets/webshelf-logo.png";
 
-const trendingBooks = [
-  {
-    title: "Tentang Kamu",
-    author: "Tere Liye",
-    cover:
-      "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Pergi",
-    author: "Tere Liye",
-    cover:
-      "https://images.unsplash.com/photo-1528208079127-0c566ade0f2c?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Garis Waktu",
-    author: "Fiersa Besari",
-    cover:
-      "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Becoming",
-    author: "Michelle Obama",
-    cover:
-      "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=300&q=60",
-  },
+const FALLBACK_COVER =
+  "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=400&q=60";
+
+const RECOMMENDATION_OPTIONS = [
+  { id: "popular", label: "Trending" },
+  { id: "top-rated", label: "Top Rated" },
+  { id: "new-arrivals", label: "New Arrivals" },
+  { id: "available", label: "Available Now" },
 ];
 
-const featuredBooks = [
-  {
-    title: "All The Light We Cannot See",
-    author: "Anthony Doerr",
-    cover:
-      "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Where The Crawdads Sing",
-    author: "Delia Owens",
-    cover:
-      "https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Rich People Problems",
-    author: "Kevin Kwan",
-    cover:
-      "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Becoming",
-    author: "Michelle Obama",
-    cover:
-      "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Konspirasi Alam Semesta",
-    author: "Fiersa Besari",
-    cover:
-      "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=300&q=60",
-  },
-  {
-    title: "Crazy Rich Asians",
-    author: "Kevin Kwan",
-    cover:
-      "https://images.unsplash.com/photo-1524253482453-3fed8d2fe12b?auto=format&fit=crop&w=300&q=60",
-  },
-];
-
-function HomePage({ isLoggedIn, onBookSelect }) {
+function HomePage({
+  isLoggedIn,
+  books = [],
+  loading,
+  errorMessage,
+  onBookSelect,
+}) {
   const navigate = useNavigate();
+  const [searchValue, setSearchValue] = useState("");
+  const [activeGenre, setActiveGenre] = useState("All");
+  const [recommendationFilter, setRecommendationFilter] = useState("popular");
+
   const handleBookSelection = (book) => {
     if (onBookSelect) {
       onBookSelect(book);
     }
     navigate("/book");
   };
+
+  const safeBooks = useMemo(
+    () => (Array.isArray(books) ? books : []),
+    [books],
+  );
+
+  const genreOptions = useMemo(() => {
+    const genreMap = new Map();
+    safeBooks.forEach((book) =>
+      book.genres?.forEach((genre) => {
+        const current = genreMap.get(genre.name) ?? { name: genre.name, count: 0 };
+        current.count += 1;
+        genreMap.set(genre.name, current);
+      }),
+    );
+    return Array.from(genreMap.values())
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 8);
+  }, [safeBooks]);
+
+  const filteredBooks = useMemo(() => {
+    const query = searchValue.trim().toLowerCase();
+    return safeBooks.filter((book) => {
+      const title = book.title?.toLowerCase() ?? "";
+      const author = book.author?.toLowerCase() ?? "";
+      const matchesQuery = query
+        ? title.includes(query) || author.includes(query)
+        : true;
+      const matchesGenre =
+        activeGenre === "All"
+        || book.genres?.some((genre) => genre.name === activeGenre);
+      return matchesQuery && matchesGenre;
+    });
+  }, [safeBooks, searchValue, activeGenre]);
+
+  const sortedBooks = useMemo(() => {
+    const list = [...filteredBooks];
+    switch (recommendationFilter) {
+      case "top-rated":
+        list.sort(
+          (a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0),
+        );
+        break;
+      case "new-arrivals":
+        list.sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() -
+            new Date(a.createdAt ?? 0).getTime(),
+        );
+        break;
+      case "available":
+        list.sort(
+          (a, b) =>
+            (b.inventory?.available ?? 0) - (a.inventory?.available ?? 0),
+        );
+        break;
+      case "popular":
+      default:
+        list.sort(
+          (a, b) => (b.review_count ?? 0) - (a.review_count ?? 0),
+        );
+        break;
+    }
+    return list;
+  }, [filteredBooks, recommendationFilter]);
+
+  const featuredBooks = sortedBooks.slice(0, 6);
+  const trendingBooks = sortedBooks.slice(6, 14);
+  const descriptorParts = [];
+  if (activeGenre !== "All") {
+    descriptorParts.push(`in ${activeGenre}`);
+  }
+  if (searchValue.trim()) {
+    descriptorParts.push(`matching “${searchValue.trim()}”`);
+  }
+  const resultsSubtitle = descriptorParts.join(" ");
 
   return (
     <div className="home-app">
@@ -116,14 +147,29 @@ function HomePage({ isLoggedIn, onBookSelect }) {
               <h1>MEET YOUR NEXT FAVORITE BOOK.</h1>
               <p className="home-hero-desc">What Will You Discover?</p>
 
-              <div className="home-search-box">
+              <form
+                className="home-search-box"
+                onSubmit={(event) => event.preventDefault()}
+              >
                 <span className="home-search-icon">🔍</span>
                 <input
                   type="text"
-                  placeholder="Search Book"
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  placeholder="Search by title or author"
                   aria-label="Search book"
                 />
-              </div>
+                {searchValue && (
+                  <button
+                    type="button"
+                    className="home-clear-search"
+                    onClick={() => setSearchValue("")}
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+              </form>
             </div>
 
             <div className="home-hero-panel">
@@ -145,7 +191,7 @@ function HomePage({ isLoggedIn, onBookSelect }) {
               {[...trendingBooks, ...trendingBooks].map((book, idx) => (
                 <div
                   className="home-trending-card"
-                  key={`${book.title}-${idx}`}
+                  key={`${book.book_id ?? book.title}-${idx}`}
                   role="button"
                   tabIndex={0}
                   onClick={() => handleBookSelection(book)}
@@ -157,7 +203,10 @@ function HomePage({ isLoggedIn, onBookSelect }) {
                   }}
                 >
                   <div className="home-cover home-cover-tall">
-                    <img src={book.cover} alt={book.title} />
+                    <img
+                      src={book.cover_url || book.cover || FALLBACK_COVER}
+                      alt={book.title}
+                    />
                   </div>
                   <div className="home-book-meta">
                     <h3>{book.title}</h3>
@@ -184,31 +233,77 @@ function HomePage({ isLoggedIn, onBookSelect }) {
           <aside className="home-sidebar">
             <div className="home-sidebar-block">
               <h3>Book by Genre</h3>
-              <button className="home-nav-pill home-nav-pill-active">
+              <button
+                type="button"
+                className={`home-nav-pill ${
+                  activeGenre === "All" ? "home-nav-pill-active" : ""
+                }`}
+                aria-pressed={activeGenre === "All"}
+                onClick={() => setActiveGenre("All")}
+              >
                 All Genres
               </button>
-              <button className="home-nav-pill">Business</button>
-              <button className="home-nav-pill">Science</button>
-              <button className="home-nav-pill">Fiction</button>
-              <button className="home-nav-pill">Philosophy</button>
-              <button className="home-nav-pill">Biography</button>
+              {genreOptions.map((genre) => (
+                <button
+                  type="button"
+                  key={genre.name}
+                  className={`home-nav-pill ${
+                    activeGenre === genre.name ? "home-nav-pill-active" : ""
+                  }`}
+                  aria-pressed={activeGenre === genre.name}
+                  onClick={() => setActiveGenre(genre.name)}
+                >
+                  {genre.name}
+                  <span className="home-pill-count">{genre.count}</span>
+                </button>
+              ))}
             </div>
 
             <div className="home-sidebar-block">
               <h3>Recommendations</h3>
-              <button className="home-sidebar-link">Artist of the Month</button>
-              <button className="home-sidebar-link">Book of the Year</button>
-              <button className="home-sidebar-link">Top Genre</button>
-              <button className="home-sidebar-link">Trending</button>
+              {RECOMMENDATION_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.id}
+                  className={`home-sidebar-link ${
+                    recommendationFilter === option.id
+                      ? "home-sidebar-link-active"
+                      : ""
+                  }`}
+                  aria-pressed={recommendationFilter === option.id}
+                  onClick={() => setRecommendationFilter(option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </aside>
 
           {/* BOOK LIST */}
           <div className="home-book-list">
-            {featuredBooks.map((book, index) => (
-              <article className="home-book-card" key={index}>
+            {!loading && !errorMessage && filteredBooks.length > 0 && (
+              <p className="home-results-meta">
+                Showing {filteredBooks.length} book
+                {filteredBooks.length === 1 ? "" : "s"}
+                {resultsSubtitle ? ` ${resultsSubtitle}` : ""}
+              </p>
+            )}
+            {loading && <p className="home-loading-copy">Loading catalog…</p>}
+            {errorMessage && (
+              <p className="home-error-copy" role="alert">
+                {errorMessage}
+              </p>
+            )}
+            {!loading && !errorMessage && featuredBooks.length === 0 && (
+              <p className="home-error-copy">No books available right now.</p>
+            )}
+            {featuredBooks.map((book) => (
+              <article
+                className="home-book-card"
+                key={book.book_id ?? book.title}
+              >
                 <div className="home-cover">
-                  <img src={book.cover} alt={book.title} />
+                  <img src={book.cover_url || FALLBACK_COVER} alt={book.title} />
                 </div>
                 <div className="home-book-info">
                   <h3 className="home-book-title">{book.title}</h3>
@@ -221,11 +316,14 @@ function HomePage({ isLoggedIn, onBookSelect }) {
                       <span>★</span>
                       <span className="home-star-muted">★</span>
                     </div>
-                    <span>1,988,288 voters</span>
+                    <span>
+                      {book.review_count ?? 0} review
+                      {(book.review_count ?? 0) === 1 ? "" : "s"}
+                    </span>
                   </div>
                   <p className="home-book-desc">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                    Purus morbi eleifend enim, tristique.
+                    {book.genres?.map((genre) => genre.name).join(", ") ||
+                      "Discover this new arrival from our catalog."}
                   </p>
                   <button
                     type="button"
