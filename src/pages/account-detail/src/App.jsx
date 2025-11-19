@@ -94,7 +94,7 @@ const historyOrders = [
   },
 ];
 
-function AccountPage() {
+function CartPage() {
   const [activeTab, setActiveTab] = useState("reading"); // 'cart' | 'reading' | 'history'
   const getTabButtonClass = (tab) =>
     `${styles['tabs-btn']} ${activeTab === tab ? styles['tabs-btn-active'] : ''}`.trim();
@@ -239,7 +239,7 @@ function AccountPage() {
 
           <div className={styles['header-right']}>
             <nav className={styles['top-nav']}>
-              <a href="#">Account</a>
+              <a href="#">Cart</a>
             </nav>
             <div className={styles['user-avatar']}>
               <span />
@@ -298,4 +298,4 @@ function AccountPage() {
   );
 }
 
-export default AccountPage;
+export default CartPage;

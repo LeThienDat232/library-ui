@@ -210,6 +210,12 @@
   transform: translateY(1px);
 }
 
+.error-message {
+  margin: 0;
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
 .sign-up-cta {
   display: flex;
   gap: 0.35rem;

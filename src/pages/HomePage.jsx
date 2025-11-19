@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../App.css";
 import webshelfLogo from "../assets/webshelf-logo.png";
@@ -12,18 +12,22 @@ const RECOMMENDATION_OPTIONS = [
   { id: "new-arrivals", label: "New Arrivals" },
   { id: "available", label: "Available Now" },
 ];
+const INITIAL_VISIBLE = 20;
+const LOAD_MORE_STEP = 10;
 
 function HomePage({
   isLoggedIn,
   books = [],
   loading,
   errorMessage,
+  searchValue = "",
+  onSearchChange,
   onBookSelect,
 }) {
   const navigate = useNavigate();
-  const [searchValue, setSearchValue] = useState("");
   const [activeGenre, setActiveGenre] = useState("All");
   const [recommendationFilter, setRecommendationFilter] = useState("popular");
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
 
   const handleBookSelection = (book) => {
     if (onBookSelect) {
@@ -48,7 +52,14 @@ function HomePage({
     );
     return Array.from(genreMap.values())
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-      .slice(0, 8);
+      .slice(0, 13);
+  }, [safeBooks]);
+
+  const trendingBooks = useMemo(() => {
+    const list = [...safeBooks].sort(
+      (a, b) => (b.review_count ?? 0) - (a.review_count ?? 0),
+    );
+    return list.slice(0, 12);
   }, [safeBooks]);
 
   const filteredBooks = useMemo(() => {
@@ -97,8 +108,35 @@ function HomePage({
     return list;
   }, [filteredBooks, recommendationFilter]);
 
-  const featuredBooks = sortedBooks.slice(0, 6);
-  const trendingBooks = sortedBooks.slice(6, 14);
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [searchValue, activeGenre, recommendationFilter]);
+
+  useEffect(() => {
+    setVisibleCount((prev) =>
+      Math.min(prev, Math.max(sortedBooks.length, INITIAL_VISIBLE)),
+    );
+  }, [sortedBooks.length]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + window.scrollY >=
+        document.body.offsetHeight - 200
+      ) {
+        setVisibleCount((prev) => {
+          if (prev >= sortedBooks.length) {
+            return prev;
+          }
+          return Math.min(prev + LOAD_MORE_STEP, sortedBooks.length);
+        });
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [sortedBooks.length]);
+
+  const featuredBooks = sortedBooks.slice(0, visibleCount);
   const descriptorParts = [];
   if (activeGenre !== "All") {
     descriptorParts.push(`in ${activeGenre}`);
@@ -121,12 +159,19 @@ function HomePage({
             </div>
 
             <nav className="home-nav">
+              <button
+                type="button"
+                className="home-cart-btn"
+                onClick={() => navigate(isLoggedIn ? "/cart" : "/login")}
+              >
+                Cart
+              </button>
               {isLoggedIn ? (
                 <button
                   type="button"
                   className="home-avatar-btn"
                   onClick={() => navigate("/account")}
-                  aria-label="Open account details"
+                  aria-label="Open account settings"
                 >
                   <span>👤</span>
                 </button>
@@ -155,7 +200,7 @@ function HomePage({
                 <input
                   type="text"
                   value={searchValue}
-                  onChange={(event) => setSearchValue(event.target.value)}
+                  onChange={(event) => onSearchChange?.(event.target.value)}
                   placeholder="Search by title or author"
                   aria-label="Search book"
                 />
@@ -163,7 +208,7 @@ function HomePage({
                   <button
                     type="button"
                     className="home-clear-search"
-                    onClick={() => setSearchValue("")}
+                    onClick={() => onSearchChange?.("")}
                     aria-label="Clear search"
                   >
                     ×
@@ -189,7 +234,7 @@ function HomePage({
           <div className="home-trending-marquee">
             <div className="home-trending-track">
               {[...trendingBooks, ...trendingBooks].map((book, idx) => (
-                <div
+                <article
                   className="home-trending-card"
                   key={`${book.book_id ?? book.title}-${idx}`}
                   role="button"
@@ -208,18 +253,28 @@ function HomePage({
                       alt={book.title}
                     />
                   </div>
-                  <div className="home-book-meta">
-                    <h3>{book.title}</h3>
-                    <p className="home-book-author">{book.author}</p>
-                    <div className="home-stars">
-                      <span>★</span>
-                      <span>★</span>
-                      <span>★</span>
-                      <span>★</span>
-                      <span className="home-star-muted">★</span>
+                  <div className="home-book-info home-trending-info">
+                    <h3 className="home-book-title">{book.title}</h3>
+                    <p className="home-trending-author">By {book.author}</p>
+                    <div className="home-book-votes">
+                      <div className="home-stars home-stars-small">
+                        <span>★</span>
+                        <span>★</span>
+                        <span>★</span>
+                        <span>★</span>
+                        <span className="home-star-muted">★</span>
+                      </div>
+                      <span>
+                        {book.review_count ?? 0} review
+                        {(book.review_count ?? 0) === 1 ? "" : "s"}
+                      </span>
                     </div>
+                    <p className="home-trending-desc">
+                      {book.genres?.map((genre) => genre.name).join(", ") ||
+                        "Discover this highlighted pick from our catalog."}
+                    </p>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           </div>

@@ -3,16 +3,54 @@ import { Link, useNavigate } from 'react-router-dom'
 import styles from './App.module.css'
 import webshelfLogo from './assets/webshelf-logo.png'
 
+const LOGIN_ENDPOINT = 'https://library-api-dicz.onrender.com/auth/login'
+
 function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
+  const [formValues, setFormValues] = useState({ email: '', password: '' })
+  const [errorMessage, setErrorMessage] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const navigate = useNavigate()
 
-  const handleSubmit = (event) => {
+  const handleChange = (event) => {
+    const { name, value } = event.target
+    setFormValues((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    if (typeof onLogin === 'function') {
-      onLogin()
+    setErrorMessage('')
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(LOGIN_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formValues.email.trim(),
+          username: formValues.email.trim(),
+          password: formValues.password,
+        }),
+      })
+      let payload = null
+      try {
+        payload = await response.json()
+      } catch {
+        payload = null
+      }
+      if (!response.ok) {
+        const message =
+          (payload && (payload.error || payload.message)) || 'Invalid credentials'
+        throw new Error(message)
+      }
+      if (typeof onLogin === 'function') {
+        onLogin(payload)
+      }
+      navigate('/')
+    } catch (error) {
+      setErrorMessage(error.message ?? 'Unable to sign in right now.')
+    } finally {
+      setIsSubmitting(false)
     }
-    navigate('/')
   }
 
   return (
@@ -49,9 +87,12 @@ function LoginPage({ onLogin }) {
             <input
               type="text"
               name="email"
+              value={formValues.email}
+              onChange={handleChange}
               placeholder="Email or phone number"
               autoComplete="username"
               required
+              disabled={isSubmitting}
             />
           </label>
 
@@ -61,9 +102,12 @@ function LoginPage({ onLogin }) {
               <input
                 type={showPassword ? 'text' : 'password'}
                 name="password"
+                value={formValues.password}
+                onChange={handleChange}
                 placeholder="Enter password"
                 autoComplete="current-password"
                 required
+                disabled={isSubmitting}
               />
               <button
                 type="button"
@@ -100,13 +144,19 @@ function LoginPage({ onLogin }) {
               <input type="checkbox" name="remember" />
               <span>Keep me signed in</span>
             </label>
-            <a className={styles['link-muted']} href="#">
+            <Link className={styles['link-muted']} to="/reset-password">
               Forgot password?
-            </a>
+            </Link>
           </div>
 
-          <button type="submit" className={styles['primary-btn']}>
-            Sign in
+          {errorMessage && (
+            <p className={styles['error-message']} role="alert">
+              {errorMessage}
+            </p>
+          )}
+
+          <button type="submit" className={styles['primary-btn']} disabled={isSubmitting}>
+            {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 

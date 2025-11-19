@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./BookDetail.module.css";
 
@@ -11,48 +11,14 @@ const fallbackBook = {
   cover_url: defaultCover,
   review_count: 0,
   avg_rating: null,
+  rating_breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
   inventory: { total: 0, available: 0 },
   genres: [{ name: "General" }],
 };
 
-const defaultSuggestions = [
-  {
-    title: "All The Light We Cannot See",
-    author: "Anthony Doerr",
-    cover_url:
-      "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=320&q=60",
-    review_count: 0,
-  },
-  {
-    title: "Rich People Problems",
-    author: "Kevin Kwan",
-    cover_url:
-      "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=320&q=60",
-    review_count: 0,
-  },
-  {
-    title: "Where The Crawdads Sing",
-    author: "Delia Owens",
-    cover_url:
-      "https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=320&q=60",
-    review_count: 0,
-  },
-  {
-    title: "Crazy Rich Asians",
-    author: "Kevin Kwan",
-    cover_url:
-      "https://images.unsplash.com/photo-1524253482453-3fed8d2fe12b?auto=format&fit=crop&w=320&q=60",
-    review_count: 0,
-  },
-];
+const ratingLevels = [5, 4, 3, 2, 1];
 
-const currentReaders = [
-  "https://randomuser.me/api/portraits/women/45.jpg",
-  "https://randomuser.me/api/portraits/men/32.jpg",
-  "https://randomuser.me/api/portraits/women/12.jpg",
-];
-
-function BookDetailPage({ book, books = [] }) {
+function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const navigate = useNavigate();
   const displayBook = book ?? fallbackBook;
   const genres = displayBook.genres ?? [];
@@ -61,6 +27,50 @@ function BookDetailPage({ book, books = [] }) {
   const reviewCount = displayBook.review_count ?? 0;
   const availableCount = displayBook.inventory?.available ?? 0;
   const totalCount = displayBook.inventory?.total ?? 0;
+  const ratingBreakdown = displayBook.rating_breakdown ?? {};
+  const totalBreakdownVotes = ratingLevels.reduce(
+    (sum, level) => sum + Number(ratingBreakdown[level] ?? 0),
+    0
+  );
+  const [reviews, setReviews] = useState([]);
+  const [reviewsError, setReviewsError] = useState("");
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const hasSession = Boolean(authSession?.token || authSession?.userId);
+
+  useEffect(() => {
+    let ignore = false;
+    async function fetchReviews() {
+      if (!displayBook?.book_id) return;
+      try {
+        setReviewsLoading(true);
+        setReviewsError("");
+        const response = await fetch(
+          `https://library-api-dicz.onrender.com/books/${displayBook.book_id}/reviews`
+        );
+        if (!response.ok) throw new Error("Reviews not available yet.");
+        const payload = await response.json();
+        if (!ignore) {
+          setReviews(Array.isArray(payload) ? payload : payload.items ?? []);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setReviews([]);
+          setReviewsError(error.message ?? "Failed to load reviews.");
+        }
+      } finally {
+        if (!ignore) {
+          setReviewsLoading(false);
+        }
+      }
+    }
+    fetchReviews();
+    return () => {
+      ignore = true;
+    };
+  }, [displayBook?.book_id]);
 
   const youMightAlsoLike = useMemo(() => {
     if (!displayBook) return [];
@@ -72,9 +82,6 @@ function BookDetailPage({ book, books = [] }) {
       (item) => item.book_id !== displayBook.book_id && item.author !== displayBook.author
     );
     const combined = sameAuthor.length > 0 ? sameAuthor : backupList;
-    if (!combined.length) {
-      return defaultSuggestions;
-    }
     return combined.slice(0, 4);
   }, [books, displayBook]);
 
@@ -151,14 +158,6 @@ function BookDetailPage({ book, books = [] }) {
                 </div>
 
                 <div className={styles['book-body']}>
-                  <div className={styles['book-section']}>
-                    <h3 className={styles['section-title']}>Brief Description</h3>
-                    <p className={styles['section-text']}>
-                      {displayBook.description ??
-                        "Discover more about this title directly from our library catalog. Detailed descriptions will appear here once available."}
-                    </p>
-                  </div>
-
                     <div className={styles['book-tags']}>
                       {genres.length > 0 ? (
                         genres.map((genre) => (
@@ -198,24 +197,6 @@ function BookDetailPage({ book, books = [] }) {
                     </div>
                   </div>
 
-                  <div className={styles['currently-reading']}>
-                    <p className={styles['section-text']}>
-                      <strong>{Math.max(totalCount - availableCount, 0)}</strong>{" "}
-                      copies currently on loan
-                    </p>
-                    <div className={styles['avatar-row']}>
-                      {currentReaders.map((reader, index) => (
-                        <span
-                          className={styles.avatar}
-                          key={reader}
-                          style={{ zIndex: currentReaders.length - index }}
-                        >
-                          <img src={reader} alt={`Reader ${index + 1}`} />
-                        </span>
-                      ))}
-                      <span className={`${styles.avatar} ${styles.more}`}>+1</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </section>
@@ -227,38 +208,102 @@ function BookDetailPage({ book, books = [] }) {
                 <button className={styles['secondary-btn']}>Write A Review</button>
               </div>
 
-              <div className={styles['rate-box']}>
+              <form
+                className={styles['rate-box']}
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!hasSession) {
+                    setReviewsError("You must borrow this book before reviewing.");
+                    return;
+                  }
+                  try {
+                    setReviewSubmitting(true);
+                    setReviewsError("");
+                    const response = await fetch(
+                      `https://library-api-dicz.onrender.com/books/${displayBook.book_id}/reviews`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${authSession?.token ?? ""}`,
+                        },
+                        body: JSON.stringify({
+                          rating: reviewRating,
+                          body: reviewText,
+                        }),
+                      }
+                    );
+                    if (!response.ok) {
+                      throw new Error("Unable to submit review. Confirm borrowing status.");
+                    }
+                    setReviewText("");
+                    setReviewRating(5);
+                    const updated = await response.json();
+                    setReviews((prev) => [updated, ...prev]);
+                  } catch (error) {
+                    setReviewsError(error.message ?? "Unable to submit review.");
+                  } finally {
+                    setReviewSubmitting(false);
+                  }
+                }}
+              >
                 <div className={styles['rate-avatar']}>
                   <span>👤</span>
                 </div>
                 <div className={styles['rate-content']}>
                   <p className={styles['rate-title']}>Rate This Book</p>
-                  <div className={`${styles.stars} ${styles.large}`}>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                  </div>
+                  <select
+                    className={styles['rate-select']}
+                    value={reviewRating}
+                    onChange={(event) => setReviewRating(Number(event.target.value))}
+                    disabled={!hasSession || reviewSubmitting}
+                  >
+                    {[5, 4, 3, 2, 1].map((value) => (
+                      <option key={value} value={value}>
+                        {value} Star{value === 1 ? "" : "s"}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    className={styles['rate-input']}
+                    placeholder={
+                      hasSession
+                        ? "Share your thoughts..."
+                        : "Borrow this title to leave a review."
+                    }
+                    value={reviewText}
+                    onChange={(event) => setReviewText(event.target.value)}
+                    disabled={!hasSession || reviewSubmitting}
+                  />
+                  <button
+                    type="submit"
+                    className={styles['submit-review']}
+                    disabled={!hasSession || reviewSubmitting}
+                  >
+                    {reviewSubmitting ? "Submitting..." : "Submit Review"}
+                  </button>
                 </div>
-              </div>
+              </form>
 
               <div className={styles['reviews-list']}>
-                <ReviewItem
-                  title="Crazy Rich Asians"
-                  date="Jan 28, 2025"
-                  rating={5}
-                />
-                <ReviewItem
-                  title="Crazy Rich Asians"
-                  date="Jan 28, 2025"
-                  rating={4}
-                />
-                <ReviewItem
-                  title="Crazy Rich Asians"
-                  date="Jan 28, 2025"
-                  rating={4}
-                />
+                {reviewsLoading && <p className={styles['section-text']}>Loading reviews…</p>}
+                {reviewsError && (
+                  <p className={styles['section-text']} role="alert">
+                    {reviewsError}
+                  </p>
+                )}
+                {!reviewsLoading && !reviewsError && reviews.length === 0 && (
+                  <p className={styles['section-text']}>No reviews yet.</p>
+                )}
+                {reviews.map((review) => (
+                  <ReviewItem
+                    key={review.review_id ?? review.title}
+                    title={review.title ?? displayBook.title}
+                    date={review.createdAt ?? ""}
+                    rating={Number(review.rating ?? 0)}
+                    text={review.body ?? review.text}
+                  />
+                ))}
               </div>
             </section>
           </section>
@@ -270,7 +315,16 @@ function BookDetailPage({ book, books = [] }) {
               <h2 className={styles['recommend-title']}>You Might Also Like</h2>
 
               {youMightAlsoLike.map((suggestion) => (
-                <SuggestionItem key={suggestion.book_id} {...suggestion} />
+                <SuggestionItem
+                  key={suggestion.book_id}
+                  book={suggestion}
+                  onSelect={() => {
+                    if (onBookSelect) {
+                      onBookSelect(suggestion);
+                      navigate("/book");
+                    }
+                  }}
+                />
               ))}
             </section>
 
@@ -288,17 +342,27 @@ function BookDetailPage({ book, books = [] }) {
                     <span className={styles['star-muted']}>★</span>
                   </div>
                   <p className={styles['score-number']}>
-                    4.7 <span>/ 5</span>
+                    {ratingValue ? ratingValue.toFixed(1) : "0.0"} <span>/ 5</span>
                   </p>
-                  <p className={styles['score-sub']}>18,340 ratings · 1,856 reviews</p>
+                  <p className={styles['score-sub']}>
+                    {reviewCount} rating{reviewCount === 1 ? "" : "s"}
+                  </p>
                 </div>
 
                 <div className={styles['score-bars']}>
-                  <ScoreRow label="5" percent={86} />
-                  <ScoreRow label="4" percent={61} />
-                  <ScoreRow label="3" percent={12} />
-                  <ScoreRow label="2" percent={5} />
-                  <ScoreRow label="1" percent={8} />
+                  {ratingLevels.map((level) => (
+                    <ScoreRow
+                      key={level}
+                      label={level}
+                      percent={
+                        totalBreakdownVotes
+                          ? Math.round(
+                              (Number(ratingBreakdown[level] ?? 0) / totalBreakdownVotes) * 100
+                            )
+                          : 0
+                      }
+                    />
+                  ))}
                 </div>
               </div>
             </section>
@@ -320,7 +384,7 @@ function DetailRow({ label, value }) {
   );
 }
 
-function ReviewItem({ title, date, rating }) {
+function ReviewItem({ title, date, rating, text }) {
   return (
     <article className={styles['review-item']}>
       <div className={styles['review-avatar']}>👤</div>
@@ -339,20 +403,16 @@ function ReviewItem({ title, date, rating }) {
             </span>
           ))}
         </div>
-        <p className={styles['review-text']}>
-          An audiobook was not available, so I took turns with Simon to read it
-          out loud. It was very interesting to learn about another couple&apos;s
-          journey and how their marriage survived the challenges of being
-          shipwrecked for over one hundred and eighteen and two-thirds days.
-        </p>
+        {text && <p className={styles['review-text']}>{text}</p>}
       </div>
     </article>
   );
 }
 
-function SuggestionItem({ title, author, review_count, cover_url, cover }) {
+function SuggestionItem({ book, onSelect }) {
+  const { title, author, review_count, cover_url, cover } = book;
   return (
-    <div className={styles['suggestion-item']}>
+    <button type="button" className={styles['suggestion-item']} onClick={onSelect}>
       <div className={styles['suggestion-cover']}>
         <img src={cover_url || cover || defaultCover} alt={title} />
       </div>
@@ -375,7 +435,7 @@ function SuggestionItem({ title, author, review_count, cover_url, cover }) {
           {`More from ${author}. Discover additional favorites from our catalog.`}
         </p>
       </div>
-    </div>
+    </button>
   );
 }
 

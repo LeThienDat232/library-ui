@@ -1,0 +1,75 @@
+.page {
+  min-height: 100vh;
+  background: #edf1f6;
+  padding: 40px clamp(1.5rem, 5vw, 4rem);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.card {
+  width: min(680px, 100%);
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header h1 {
+  margin: 4px 0 0;
+}
+
+.header .label {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: #4b5563;
+}
+
+.field input {
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.field input:focus {
+  border-color: #2563eb;
+}
+
+.submitBtn {
+  border: none;
+  border-radius: 16px;
+  background: #1f7bff;
+  color: #fff;
+  padding: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.errorMessage {
+  color: #dc2626;
+  margin: 0;
+}
+
+.successMessage {
+  color: #16a34a;
+  margin: 0;
+}

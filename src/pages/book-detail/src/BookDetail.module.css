@@ -302,49 +302,6 @@
 
 /* currently reading */
 
-.currently-reading {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.avatar-row {
-  display: flex;
-  align-items: center;
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 2px solid #fff;
-  overflow: hidden;
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
-  margin-left: -8px;
-  background: #f5f6fb;
-}
-
-.avatar:first-child {
-  margin-left: 0;
-}
-
-.avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar.more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  background: #f5f6fb;
-  color: #444;
-  font-weight: 600;
-}
 
 /* ratings & reviews */
 
@@ -389,6 +346,33 @@
   border-radius: 12px;
   background: #f5f6fb;
   margin-bottom: 18px;
+}
+
+.rate-select,
+.rate-input {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.rate-input {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.submit-review {
+  align-self: flex-start;
+  border: none;
+  background: #ff8a00;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
 }
 
 .rate-avatar {
@@ -491,6 +475,11 @@
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
   gap: 14px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
 }
 
 .suggestion-cover {
