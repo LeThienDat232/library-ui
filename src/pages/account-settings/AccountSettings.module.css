@@ -18,6 +18,13 @@
   gap: 24px;
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
 .header h1 {
   margin: 4px 0 0;
 }
@@ -28,10 +35,40 @@
   color: #6b7280;
 }
 
+.headerButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.secondaryBtn,
+.logoutBtn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryBtn {
+  background: #f5f6fb;
+  color: #1f7bff;
+}
+
+.logoutBtn {
+  background: #ef4444;
+  color: #fff;
+}
+
 .form {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
 }
 
 .field {

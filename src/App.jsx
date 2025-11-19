@@ -1,17 +1,52 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import CartPage from "./pages/account-detail/src/App.jsx";
 import AccountSettings from "./pages/account-settings/AccountSettings.jsx";
+import ResetPassword from "./pages/reset-password/ResetPassword.jsx";
 import BookDetailPage from "./pages/book-detail/src/App.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/login-page/src/App.jsx";
 import RegisterPage from "./pages/register-page/src/App.jsx";
+import RequireAdmin from "./components/RequireAdmin.jsx";
+import AdminLayout from "./pages/admin/AdminLayout.jsx";
+import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
+import AdminCirculation from "./pages/admin/AdminCirculation.jsx";
+import AdminInvoices from "./pages/admin/AdminInvoices.jsx";
+import AdminTransactions from "./pages/admin/AdminTransactions.jsx";
+import AdminReviews from "./pages/admin/AdminReviews.jsx";
+import AdminBooks from "./pages/admin/AdminBooks.jsx";
+import { AuthContext, isAdminUser } from "./contexts/AuthContext.jsx";
+
+const AUTH_STORAGE_KEY = "webshelf-auth";
+
+const normalizeAuthSession = (rawSession) => {
+  if (!rawSession || typeof rawSession !== "object") {
+    return null;
+  }
+  const accessToken =
+    rawSession.token ??
+    rawSession.accessToken ??
+    rawSession.access_token ??
+    rawSession.jwt ??
+    null;
+  const refreshToken =
+    rawSession.refreshToken ?? rawSession.refresh_token ?? null;
+  const userProfile =
+    rawSession.user ?? rawSession.account ?? rawSession.profile ?? null;
+  return {
+    ...rawSession,
+    token: accessToken,
+    accessToken,
+    refreshToken,
+    user: userProfile,
+  };
+};
 
 function App() {
   const [authSession, setAuthSession] = useState(() => {
     try {
-      const stored = localStorage.getItem("webshelf-auth");
-      return stored ? JSON.parse(stored) : null;
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      return stored ? normalizeAuthSession(JSON.parse(stored)) : null;
     } catch {
       return null;
     }
@@ -21,7 +56,8 @@ function App() {
   const [booksLoading, setBooksLoading] = useState(false);
   const [booksError, setBooksError] = useState("");
   const [searchValue, setSearchValue] = useState("");
-  const isLoggedIn = Boolean(authSession);
+  const accessToken = authSession?.accessToken ?? authSession?.token ?? "";
+  const isLoggedIn = Boolean(accessToken || authSession);
 
   useEffect(() => {
     let ignore = false;
@@ -69,11 +105,20 @@ function App() {
     return map;
   }, [books]);
 
-  const handleLogin = (sessionPayload) => {
-    const payload = sessionPayload ?? {};
+  const handleLogin = useCallback((sessionPayload) => {
+    const payload = normalizeAuthSession(sessionPayload);
     setAuthSession(payload);
-    localStorage.setItem("webshelf-auth", JSON.stringify(payload));
-  };
+    if (payload) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setAuthSession(null);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  }, []);
 
   const handleBookSelect = (book) => {
     if (!book) {
@@ -84,18 +129,35 @@ function App() {
     setSelectedBook(bookWithLatestData);
   };
 
+  const authUser = authSession?.user ?? null;
+  const isAdmin = isAdminUser(authUser);
+  const authValue = useMemo(
+    () => ({
+      session: authSession,
+      user: authUser,
+      accessToken,
+      isAuthenticated: Boolean(accessToken),
+      isAdmin,
+      login: handleLogin,
+      logout: handleLogout,
+    }),
+    [accessToken, authSession, authUser, handleLogin, handleLogout, isAdmin]
+  );
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <HomePage
-              isLoggedIn={isLoggedIn}
-              books={books}
-              loading={booksLoading}
-              errorMessage={booksError}
-              searchValue={searchValue}
+    <AuthContext.Provider value={authValue}>
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <HomePage
+                isLoggedIn={isLoggedIn}
+                isAdmin={isAdmin}
+                books={books}
+                loading={booksLoading}
+                errorMessage={booksError}
+                searchValue={searchValue}
               onSearchChange={setSearchValue}
               onBookSelect={handleBookSelect}
             />
@@ -103,20 +165,20 @@ function App() {
         />
         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
         <Route path="/register" element={<RegisterPage />} />
-       <Route
-         path="/book"
-         element={
-           selectedBook ? (
-             <BookDetailPage
-               book={selectedBook}
-               books={books}
-               onBookSelect={handleBookSelect}
-               authSession={authSession}
-             />
-           ) : (
-             <Navigate to="/" replace />
-           )
-         }
+        <Route
+          path="/book"
+          element={
+            selectedBook ? (
+              <BookDetailPage
+                book={selectedBook}
+                books={books}
+                onBookSelect={handleBookSelect}
+                authSession={authSession}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
         />
         <Route
           path="/cart"
@@ -128,15 +190,36 @@ function App() {
           path="/account"
           element={
             isLoggedIn ? (
-              <AccountSettings authSession={authSession} />
+              <AccountSettings
+                authSession={authSession}
+                onLogout={handleLogout}
+              />
             ) : (
               <Navigate to="/login" replace />
             )
           }
         />
+        <Route
+          path="/admin"
+          element={
+            <RequireAdmin>
+              <AdminLayout />
+            </RequireAdmin>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="circulation" element={<AdminCirculation />} />
+          <Route path="invoices" element={<AdminInvoices />} />
+          <Route path="transactions" element={<AdminTransactions />} />
+          <Route path="reviews" element={<AdminReviews />} />
+          <Route path="books" element={<AdminBooks />} />
+        </Route>
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/reset" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </AuthContext.Provider>
   );
 }
 

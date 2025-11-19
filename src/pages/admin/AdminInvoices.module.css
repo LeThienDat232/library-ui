@@ -1,0 +1,146 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0 0 4px;
+}
+
+.secondaryBtn {
+  border: 1px solid #cbd5f5;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-weight: 600;
+  background: #fff;
+  cursor: pointer;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filters span {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.filters select,
+.filters input {
+  border-radius: 10px;
+  border: 1px solid #cbd5f5;
+  padding: 8px 12px;
+}
+
+.feedbackSuccess,
+.feedbackError {
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+
+.feedbackSuccess {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.feedbackError {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.tableWrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.tableWrapper th {
+  text-align: left;
+  padding: 12px 10px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: #94a3b8;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tableWrapper td {
+  padding: 14px 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.statusPill {
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  background: #e2e8f0;
+}
+
+.status-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-unpaid {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-void {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.tableActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tableActions button {
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+  background: #fff;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.linkButton {
+  background: transparent;
+  border: none !important;
+  color: #ef4444;
+}
+
+.emptyCell {
+  text-align: center;
+  padding: 24px 0;
+  color: #94a3b8;
+}

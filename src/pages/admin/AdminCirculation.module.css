@@ -1,0 +1,201 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header h2 {
+  margin: 4px 0 8px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.scanForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.field input {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #cbd5f5;
+  padding: 0 14px;
+  font-size: 1rem;
+}
+
+.primaryBtn {
+  background: #1f7bff;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryBtn {
+  border-radius: 12px;
+  padding: 12px 18px;
+  border: 1px solid #d0d7ea;
+  background: #f8fafc;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dangerBtn {
+  border-radius: 12px;
+  padding: 12px 18px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.statusMessage {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.statusMessageError {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.loanCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: #fff;
+}
+
+.loanHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.loanLabel {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.loanHeader h3 {
+  margin: 4px 0;
+}
+
+.borrowerMeta {
+  margin: 0;
+  color: #475569;
+}
+
+.statusPill {
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: #e2e8f0;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-borrowed {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.loanMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.metaLabel {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.metaValue {
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+
+.bookList {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bookList li {
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2ff;
+}
+
+.bookTitle {
+  margin: 0;
+  font-weight: 600;
+}
+
+.bookSubtitle {
+  margin: 2px 0 0;
+  color: #475569;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.placeholder {
+  border: 1px dashed #cbd5f5;
+  border-radius: 16px;
+  padding: 34px;
+  text-align: center;
+  color: #94a3b8;
+}

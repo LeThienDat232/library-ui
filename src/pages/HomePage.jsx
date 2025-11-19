@@ -17,6 +17,7 @@ const LOAD_MORE_STEP = 10;
 
 function HomePage({
   isLoggedIn,
+  isAdmin = false,
   books = [],
   loading,
   errorMessage,
@@ -166,6 +167,15 @@ function HomePage({
               >
                 Cart
               </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="home-admin-btn"
+                  onClick={() => navigate("/admin")}
+                >
+                  Admin
+                </button>
+              )}
               {isLoggedIn ? (
                 <button
                   type="button"

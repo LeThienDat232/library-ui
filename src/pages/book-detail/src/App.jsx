@@ -38,7 +38,8 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const hasSession = Boolean(authSession?.token || authSession?.userId);
+  const accessToken = authSession?.accessToken ?? authSession?.token ?? "";
+  const hasSession = Boolean(accessToken || authSession?.userId);
 
   useEffect(() => {
     let ignore = false;
@@ -225,7 +226,7 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                         method: "POST",
                         headers: {
                           "Content-Type": "application/json",
-                          Authorization: `Bearer ${authSession?.token ?? ""}`,
+                          Authorization: `Bearer ${accessToken}`,
                         },
                         body: JSON.stringify({
                           rating: reviewRating,

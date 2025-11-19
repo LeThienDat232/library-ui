@@ -1,0 +1,159 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: #475569;
+}
+
+.searchRow input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #cbd5f5;
+  padding: 10px 14px;
+}
+
+.feedbackSuccess,
+.feedbackError {
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.feedbackSuccess {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.feedbackError {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr);
+  gap: 20px;
+}
+
+.listPane {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.listPane h3 {
+  margin-top: 0;
+}
+
+.listPane ul {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.listPane li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 10px;
+}
+
+.listPane li:last-child {
+  border-bottom: none;
+}
+
+.primaryText {
+  margin: 0;
+  font-weight: 600;
+}
+
+.subText {
+  margin: 4px 0 0;
+  color: #94a3b8;
+}
+
+.listActions button {
+  border: none;
+  background: transparent;
+  color: #1f7bff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.formPane {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.linkBtn {
+  border: none;
+  background: transparent;
+  color: #1f7bff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.formPane label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formPane input,
+.formPane textarea {
+  border-radius: 12px;
+  border: 1px solid #cbd5f5;
+  padding: 10px 12px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.primaryBtn {
+  border: none;
+  border-radius: 12px;
+  background: #1f7bff;
+  color: #fff;
+  padding: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.muted {
+  color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
