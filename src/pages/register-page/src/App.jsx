@@ -1,10 +1,85 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import webshelfLogo from './assets/webshelf-logo.png'
 import styles from './App.module.css'
 
+const REGISTER_ENDPOINT = 'https://library-api-dicz.onrender.com/auth/register'
+
 function RegisterPage() {
+  const navigate = useNavigate()
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [formValues, setFormValues] = useState({
+    contact: '',
+    username: '',
+    password: '',
+    confirmPassword: '',
+  })
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+    setFormValues((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    const email = formValues.contact.trim()
+    const username = formValues.username.trim()
+    const password = formValues.password
+
+    if (!email) {
+      setErrorMessage('Please enter an email address.')
+      return
+    }
+    if (!password) {
+      setErrorMessage('Please choose a password.')
+      return
+    }
+    if (password !== formValues.confirmPassword) {
+      setErrorMessage('Passwords do not match.')
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      const response = await fetch(REGISTER_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          ...(username ? { username } : {}),
+        }),
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        const message =
+          (payload && (payload.error || payload.message)) ||
+          'Unable to create your account right now.'
+        throw new Error(message)
+      }
+
+      setSuccessMessage(
+        payload?.message ?? 'Account created! Check your email for the activation link.'
+      )
+      setFormValues({
+        contact: email,
+        username,
+        password: '',
+        confirmPassword: '',
+      })
+      setTimeout(() => navigate('/login'), 1400)
+    } catch (error) {
+      setErrorMessage(error.message ?? 'Unable to create your account right now.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <main className={styles['sign-up-shell']}>
@@ -33,27 +108,36 @@ function RegisterPage() {
         </header>
 
         <h1 className={styles['form-heading']}>Ready to turn the first page?</h1>
+        <p className={styles.helper}>
+          Create your Webshelf account to browse, borrow, and review books. We&apos;ll email an
+          activation link to confirm your account.
+        </p>
 
-        <form className={styles['sign-up-form']}>
+        <form className={styles['sign-up-form']} onSubmit={handleSubmit} noValidate>
           <label className={styles.field}>
-            <span>Email or phone number</span>
+            <span>Email</span>
             <input
-              type="text"
+              type="email"
               name="contact"
-              placeholder="Email or phone number"
+              value={formValues.contact}
+              onChange={handleChange}
+              placeholder="name@email.com"
               autoComplete="email"
               required
+              disabled={isSubmitting}
             />
           </label>
 
           <label className={styles.field}>
-            <span>Username</span>
+            <span>Username (optional)</span>
             <input
               type="text"
               name="username"
-              placeholder="Username"
+              value={formValues.username}
+              onChange={handleChange}
+              placeholder="Your display name"
               autoComplete="username"
-              required
+              disabled={isSubmitting}
             />
           </label>
 
@@ -62,9 +146,13 @@ function RegisterPage() {
             <input
               type="password"
               name="password"
+              value={formValues.password}
+              onChange={handleChange}
               placeholder="Choose a secure password"
               autoComplete="new-password"
               required
+              disabled={isSubmitting}
+              minLength={6}
             />
           </label>
 
@@ -74,9 +162,12 @@ function RegisterPage() {
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
+                value={formValues.confirmPassword}
+                onChange={handleChange}
                 placeholder="Re-enter your password"
                 autoComplete="new-password"
                 required
+                disabled={isSubmitting}
               />
 
               <button
@@ -109,8 +200,19 @@ function RegisterPage() {
             </div>
           </label>
 
-          <button type="submit" className={styles['primary-btn']}>
-            Sign up
+          {errorMessage && (
+            <p className={styles['error-message']} role="alert" aria-live="polite">
+              {errorMessage}
+            </p>
+          )}
+          {successMessage && (
+            <p className={styles['success-message']} role="status" aria-live="polite">
+              {successMessage}
+            </p>
+          )}
+
+          <button type="submit" className={styles['primary-btn']} disabled={isSubmitting}>
+            {isSubmitting ? 'Creating account…' : 'Sign up'}
           </button>
         </form>
 

@@ -100,7 +100,13 @@ function App() {
   const catalogById = useMemo(() => {
     const map = new Map();
     books.forEach((book) => {
-      map.set(book.book_id, book);
+      const id = book.book_id ?? book.id;
+      if (id === undefined || id === null) return;
+      map.set(id, book);
+      const idAsString = id?.toString?.();
+      if (idAsString) {
+        map.set(idAsString, book);
+      }
     });
     return map;
   }, [books]);

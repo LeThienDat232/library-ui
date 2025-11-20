@@ -47,11 +47,29 @@ async function parseResponse(response, fallbackMessage) {
   return payload;
 }
 
+function normalizeListPayload(payload) {
+  if (!payload) {
+    return { rows: [], count: 0 };
+  }
+  let rows = [];
+  if (Array.isArray(payload)) {
+    rows = payload;
+  } else if (Array.isArray(payload.rows)) {
+    rows = payload.rows;
+  } else if (Array.isArray(payload.items)) {
+    rows = payload.items;
+  }
+  return {
+    rows,
+    count: payload.count ?? payload.total ?? rows.length,
+  };
+}
+
 export async function adminScan(tokenString, accessToken) {
   const response = await fetch(`${API_BASE_URL}/admin/scan`, {
     method: "POST",
     headers: authHeaders(accessToken),
-    body: JSON.stringify({ token: tokenString?.trim?.() ?? tokenString }),
+    body: JSON.stringify({ code: tokenString?.trim?.() ?? tokenString }),
   });
   return parseResponse(response, "Scan failed");
 }
@@ -101,21 +119,20 @@ export async function adminCancelLoan(loanId, accessToken) {
 }
 
 export async function adminListInvoices(params, accessToken) {
-  const response = await fetch(
-    buildUrl("/admin/invoices", params),
-    {
-      headers: authHeaders(accessToken),
-    }
-  );
-  return parseResponse(response, "Unable to load invoices");
+  const response = await fetch(buildUrl("/admin/invoices", params), {
+    headers: authHeaders(accessToken),
+  });
+  const payload = await parseResponse(response, "Unable to load invoices");
+  return normalizeListPayload(payload);
 }
 
-export async function adminMarkInvoicePaid(invoiceId, accessToken) {
+export async function adminMarkInvoicePaid(invoiceId, paymentDetails, accessToken) {
   const response = await fetch(
     `${API_BASE_URL}/admin/invoices/${invoiceId}/mark-paid`,
     {
       method: "POST",
       headers: authHeaders(accessToken),
+      body: JSON.stringify(paymentDetails || {}),
     }
   );
   return parseResponse(response, "Unable to update invoice");
@@ -141,20 +158,19 @@ export async function adminRunOverdueJob(accessToken) {
 }
 
 export async function adminListTransactions(params, accessToken) {
-  const response = await fetch(
-    buildUrl("/admin/transactions", params),
-    {
-      headers: authHeaders(accessToken),
-    }
-  );
-  return parseResponse(response, "Unable to load transactions");
+  const response = await fetch(buildUrl("/admin/transactions", params), {
+    headers: authHeaders(accessToken),
+  });
+  const payload = await parseResponse(response, "Unable to load transactions");
+  return normalizeListPayload(payload);
 }
 
 export async function adminListReviews(params, accessToken) {
   const response = await fetch(buildUrl("/admin/reviews", params), {
     headers: authHeaders(accessToken),
   });
-  return parseResponse(response, "Unable to load reviews");
+  const payload = await parseResponse(response, "Unable to load reviews");
+  return normalizeListPayload(payload);
 }
 
 export async function adminHideReview(reviewId, accessToken) {
@@ -184,15 +200,18 @@ export async function adminListBooks(params, accessToken) {
     const response = await fetch(buildUrl("/admin/books", params), {
       headers: authHeaders(accessToken),
     });
-    return await parseResponse(response, "Unable to load books");
+    const payload = await parseResponse(response, "Unable to load books");
+    return normalizeListPayload(payload);
   } catch (error) {
-    // Some deployments might not expose /admin/books; fall back to public catalog.
     if (error.status === 404 || error.status === 403) {
       const fallbackParams = { ...params };
-      if (fallbackParams.user_id) delete fallbackParams.user_id;
-      if (fallbackParams.loan_id) delete fallbackParams.loan_id;
+      if (fallbackParams.search) {
+        fallbackParams.title = fallbackParams.search;
+        delete fallbackParams.search;
+      }
       const fallbackResponse = await fetch(buildUrl("/books", fallbackParams));
-      return parseResponse(fallbackResponse, "Unable to load books");
+      const payload = await parseResponse(fallbackResponse, "Unable to load books");
+      return normalizeListPayload(payload);
     }
     throw error;
   }

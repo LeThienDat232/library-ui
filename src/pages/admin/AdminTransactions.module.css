@@ -81,6 +81,11 @@
   color: #15803d;
 }
 
+.status-succeeded {
+  background: #dcfce7;
+  color: #15803d;
+}
+
 .status-failed {
   background: #fee2e2;
   color: #b91c1c;

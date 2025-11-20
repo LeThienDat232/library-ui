@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./AdminInvoices.module.css";
 import {
   adminListInvoices,
@@ -7,6 +7,7 @@ import {
   adminRunOverdueJob,
 } from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
+import useAdminApiError from "../../hooks/useAdminApiError.js";
 
 const statusOptions = [
   { value: "", label: "All" },
@@ -15,12 +16,19 @@ const statusOptions = [
   { value: "void", label: "Void" },
 ];
 
-function formatCurrency(amount, currency = "USD") {
+const invoiceTypeOptions = [
+  { value: "", label: "Any type" },
+  { value: "overdue", label: "Overdue" },
+  { value: "damage", label: "Damage" },
+  { value: "lost", label: "Lost" },
+];
+
+function formatCurrency(amount, currency = "VND") {
   if (amount === undefined || amount === null) return "—";
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: currency || "USD",
+      currency: currency || "VND",
       maximumFractionDigits: 2,
     }).format(Number(amount));
   } catch {
@@ -30,12 +38,25 @@ function formatCurrency(amount, currency = "USD") {
 
 function AdminInvoices() {
   const accessToken = useAuthToken();
-  const [filters, setFilters] = useState({ status: "unpaid", userId: "", loanId: "" });
+  const [filters, setFilters] = useState({
+    status: "unpaid",
+    type: "",
+    userId: "",
+    loanId: "",
+    fromDate: "",
+    toDate: "",
+  });
   const [invoices, setInvoices] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [refreshKey, setRefreshKey] = useState(0);
   const [jobRunning, setJobRunning] = useState(false);
+  const notifyAuthError = useCallback(
+    (message) => setFeedback({ type: "error", message }),
+    []
+  );
+  const handleAuthError = useAdminApiError(notifyAuthError);
 
   useEffect(() => {
     let ignore = false;
@@ -45,17 +66,22 @@ function AdminInvoices() {
         setFeedback({ type: "", message: "" });
         const params = {};
         if (filters.status) params.status = filters.status;
+        if (filters.type) params.type = filters.type;
         if (filters.userId.trim()) params.user_id = filters.userId.trim();
         if (filters.loanId.trim()) params.loan_id = filters.loanId.trim();
+        if (filters.fromDate) params.from = filters.fromDate;
+        if (filters.toDate) params.to = filters.toDate;
         const payload = await adminListInvoices(params, accessToken);
         if (!ignore) {
-          const items = Array.isArray(payload) ? payload : payload.items ?? [];
-          setInvoices(items);
+          setInvoices(payload.rows);
+          setTotalCount(payload.count);
         }
       } catch (error) {
         if (!ignore) {
-          setFeedback({ type: "error", message: error.message });
-          setInvoices([]);
+          if (!handleAuthError(error)) {
+            setFeedback({ type: "error", message: error.message });
+            setInvoices([]);
+          }
         }
       } finally {
         if (!ignore) {
@@ -68,20 +94,34 @@ function AdminInvoices() {
     return () => {
       ignore = true;
     };
-  }, [filters, accessToken, refreshKey]);
+  }, [filters, accessToken, refreshKey, handleAuthError]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleMarkPaid = async (invoiceId) => {
+  const handleMarkPaid = async (invoice) => {
+    const providerInput = window.prompt("Payment provider", "cash");
+    if (providerInput === null) return;
+    const referenceInput = window.prompt(
+      "Receipt / transaction reference (optional)",
+      ""
+    );
+    const payload = {
+      provider: providerInput.trim() || "cash",
+    };
+    if (referenceInput && referenceInput.trim()) {
+      payload.ref = referenceInput.trim();
+    }
     try {
-      await adminMarkInvoicePaid(invoiceId, accessToken);
+      await adminMarkInvoicePaid(invoice.invoice_id, payload, accessToken);
       setFeedback({ type: "success", message: "Invoice marked as paid." });
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
-      setFeedback({ type: "error", message: error.message });
+      if (!handleAuthError(error)) {
+        setFeedback({ type: "error", message: error.message });
+      }
     }
   };
 
@@ -91,7 +131,9 @@ function AdminInvoices() {
       setFeedback({ type: "success", message: "Invoice voided." });
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
-      setFeedback({ type: "error", message: error.message });
+      if (!handleAuthError(error)) {
+        setFeedback({ type: "error", message: error.message });
+      }
     }
   };
 
@@ -102,7 +144,9 @@ function AdminInvoices() {
       setFeedback({ type: "success", message: "Overdue job triggered. Refreshing data." });
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
-      setFeedback({ type: "error", message: error.message });
+      if (!handleAuthError(error)) {
+        setFeedback({ type: "error", message: error.message });
+      }
     } finally {
       setJobRunning(false);
     }
@@ -152,6 +196,16 @@ function AdminInvoices() {
           </select>
         </label>
         <label>
+          <span>Type</span>
+          <select name="type" value={filters.type} onChange={handleFilterChange}>
+            {invoiceTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           <span>User ID</span>
           <input
             type="text"
@@ -171,7 +225,29 @@ function AdminInvoices() {
             placeholder="456"
           />
         </label>
+        <label>
+          <span>From date</span>
+          <input
+            type="date"
+            name="fromDate"
+            value={filters.fromDate}
+            onChange={handleFilterChange}
+          />
+        </label>
+        <label>
+          <span>To date</span>
+          <input
+            type="date"
+            name="toDate"
+            value={filters.toDate}
+            onChange={handleFilterChange}
+          />
+        </label>
       </div>
+
+      {totalCount > 0 && (
+        <p className={styles.totalCount}>Total invoices: {totalCount}</p>
+      )}
 
       {feedback.message && (
         <p
@@ -202,10 +278,15 @@ function AdminInvoices() {
               return (
                 <tr key={invoice.invoice_id}>
                   <td>{invoice.invoice_id}</td>
-                  <td>{invoice.user?.email || invoice.user_id}</td>
+                  <td>{invoice.user?.email || `User #${invoice.user_id}`}</td>
                   <td>{invoice.loan_id ?? "—"}</td>
                   <td>{invoice.type || invoice.invoice_type || "—"}</td>
-                  <td>{formatCurrency(invoice.amount, invoice.currency)}</td>
+                  <td>
+                    {formatCurrency(
+                      invoice.amount_vnd ?? invoice.amount,
+                      invoice.currency ?? "VND"
+                    )}
+                  </td>
                   <td>
                     <span
                       className={`${styles.statusPill} ${
@@ -230,7 +311,7 @@ function AdminInvoices() {
                       <button
                         type="button"
                         disabled={invoice.status === "paid" || loading}
-                        onClick={() => handleMarkPaid(invoice.invoice_id)}
+                        onClick={() => handleMarkPaid(invoice)}
                       >
                         Mark paid
                       </button>

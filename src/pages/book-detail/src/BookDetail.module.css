@@ -235,6 +235,31 @@
   box-shadow: 0 10px 25px rgba(255, 138, 0, 0.5);
 }
 
+.primary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.cart-status {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.cart-status-success {
+  color: #047857;
+}
+
+.cart-status-error {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.cart-status-info {
+  color: #1d4ed8;
+}
+
 /* shared sections */
 
 .book-section {

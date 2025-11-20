@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./AdminBooks.module.css";
 import {
   adminListBooks,
@@ -7,21 +6,19 @@ import {
   adminUpdateBook,
   adminDeleteBook,
 } from "../../api/admin";
-import { useAuth, useAuthToken } from "../../contexts/AuthContext.jsx";
+import { useAuthToken } from "../../contexts/AuthContext.jsx";
+import useAdminApiError from "../../hooks/useAdminApiError.js";
 
 const emptyForm = {
   title: "",
   author: "",
   coverUrl: "",
   totalCopies: 5,
-  availableCopies: 5,
   genres: "",
 };
 
 function AdminBooks() {
   const accessToken = useAuthToken();
-  const navigate = useNavigate();
-  const { logout } = useAuth();
   const [search, setSearch] = useState("");
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -30,19 +27,11 @@ function AdminBooks() {
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [saving, setSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  const handleAuthError = (error) => {
-    if (error?.status === 401 || /expired token/i.test(error?.message || "")) {
-      setFeedback({
-        type: "error",
-        message: "Session expired. Please sign in again.",
-      });
-      logout();
-      navigate("/login", { replace: true });
-      return true;
-    }
-    return false;
-  };
+  const notifyAuthError = useCallback(
+    (message) => setFeedback({ type: "error", message }),
+    []
+  );
+  const handleAuthError = useAdminApiError(notifyAuthError);
 
   useEffect(() => {
     let ignore = false;
@@ -50,18 +39,19 @@ function AdminBooks() {
       try {
         setLoading(true);
         const params = { limit: 40 };
+        if (search.trim()) {
+          params.search = search.trim();
+        }
         const payload = await adminListBooks(params, accessToken);
         if (!ignore) {
-          const items = Array.isArray(payload) ? payload : payload.items ?? [];
-          setBooks(items);
+          setBooks(payload.rows);
         }
       } catch (error) {
         if (!ignore) {
-          if (handleAuthError(error)) {
-            return;
+          if (!handleAuthError(error)) {
+            setBooks([]);
+            setFeedback({ type: "error", message: error.message });
           }
-          setBooks([]);
-          setFeedback({ type: "error", message: error.message });
         }
       } finally {
         if (!ignore) {
@@ -74,14 +64,16 @@ function AdminBooks() {
     return () => {
       ignore = true;
     };
-  }, [accessToken, refreshKey]);
+  }, [accessToken, refreshKey, search, handleAuthError]);
 
   const filteredBooks = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return books;
-    return books.filter((book) =>
-      (book.title || "").toLowerCase().includes(query)
-    );
+    return books.filter((book) => {
+      const titleMatch = (book.title || "").toLowerCase().includes(query);
+      const authorMatch = (book.author || "").toLowerCase().includes(query);
+      return titleMatch || authorMatch;
+    });
   }, [books, search]);
 
   const resetForm = () => {
@@ -101,7 +93,6 @@ function AdminBooks() {
       author: book.author ?? "",
       coverUrl: book.cover_url ?? "",
       totalCopies: book.inventory?.total ?? 0,
-      availableCopies: book.inventory?.available ?? 0,
       genres: (book.genres || [])
         .map((genre) => genre.genre_id || genre.id || genre.name)
         .filter(Boolean)
@@ -277,28 +268,16 @@ function AdminBooks() {
             />
           </label>
 
-          <div className={styles.row}>
-            <label>
-              <span>Total copies</span>
-              <input
-                type="number"
-                name="totalCopies"
-                min="0"
-                value={formValues.totalCopies}
-                onChange={handleChange}
-              />
-            </label>
-            <label>
-              <span>Available</span>
-              <input
-                type="number"
-                name="availableCopies"
-                min="0"
-                value={formValues.availableCopies}
-                onChange={handleChange}
-              />
-            </label>
-          </div>
+          <label>
+            <span>Total copies</span>
+            <input
+              type="number"
+              name="totalCopies"
+              min="0"
+              value={formValues.totalCopies}
+              onChange={handleChange}
+            />
+          </label>
 
           <label>
             <span>Genres (IDs, comma separated)</span>

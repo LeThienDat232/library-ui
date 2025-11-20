@@ -8,6 +8,7 @@ import {
   adminCancelLoan,
 } from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
+import useAdminApiError from "../../hooks/useAdminApiError.js";
 
 function AdminCirculation() {
   const [tokenInput, setTokenInput] = useState("");
@@ -17,6 +18,12 @@ function AdminCirculation() {
   const [actionLoading, setActionLoading] = useState(false);
   const [lastToken, setLastToken] = useState("");
   const accessToken = useAuthToken();
+  const handleAuthError = useAdminApiError(
+    useCallback(
+      (message) => setActionState({ type: "error", message }),
+      []
+    )
+  );
 
   const performScan = useCallback(
     async (tokenValue) => {
@@ -34,12 +41,14 @@ function AdminCirculation() {
         setLastToken(trimmed);
       } catch (error) {
         setLoan(null);
-        setActionState({ type: "error", message: error.message });
+        if (!handleAuthError(error)) {
+          setActionState({ type: "error", message: error.message });
+        }
       } finally {
         setLoading(false);
       }
     },
-    [accessToken, tokenInput]
+    [accessToken, tokenInput, handleAuthError]
   );
 
   const handleScanSubmit = async (event) => {
@@ -71,12 +80,14 @@ function AdminCirculation() {
           await performScan(refetchToken);
         }
       } catch (error) {
-        setActionState({ type: "error", message: error.message });
+        if (!handleAuthError(error)) {
+          setActionState({ type: "error", message: error.message });
+        }
       } finally {
         setActionLoading(false);
       }
     },
-    [loan, accessToken, performScan, lastToken]
+    [loan, accessToken, performScan, lastToken, handleAuthError]
   );
 
   const status = useMemo(() => {

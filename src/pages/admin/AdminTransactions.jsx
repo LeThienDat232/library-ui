@@ -1,54 +1,55 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import styles from "./AdminTransactions.module.css";
 import { adminListTransactions } from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
+import useAdminApiError from "../../hooks/useAdminApiError.js";
 
-const statusOptions = [
-  { value: "", label: "All" },
-  { value: "pending", label: "Pending" },
-  { value: "completed", label: "Completed" },
-  { value: "failed", label: "Failed" },
-];
-
-const providerOptions = [
-  { value: "", label: "Provider" },
-  { value: "stripe", label: "Stripe" },
-  { value: "manual", label: "Manual" },
-  { value: "cash", label: "Cash" },
+const typeOptions = [
+  { value: "", label: "Any type" },
+  { value: "payment", label: "Payment" },
+  { value: "refund", label: "Refund" },
 ];
 
 function AdminTransactions() {
   const accessToken = useAuthToken();
   const [filters, setFilters] = useState({
-    status: "",
-    provider: "",
+    type: "",
     userId: "",
     invoiceId: "",
+    fromDate: "",
+    toDate: "",
   });
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const notifyAuthError = useCallback(
+    (message) => setFeedback({ type: "error", message }),
+    []
+  );
+  const handleAuthError = useAdminApiError(notifyAuthError);
 
   useEffect(() => {
     let ignore = false;
     async function loadTransactions() {
       try {
         setLoading(true);
-        setError("");
+        setFeedback({ type: "", message: "" });
         const params = {};
-        if (filters.status) params.status = filters.status;
-        if (filters.provider) params.provider = filters.provider;
+        if (filters.type) params.type = filters.type;
         if (filters.userId.trim()) params.user_id = filters.userId.trim();
         if (filters.invoiceId.trim()) params.invoice_id = filters.invoiceId.trim();
+        if (filters.fromDate) params.from = filters.fromDate;
+        if (filters.toDate) params.to = filters.toDate;
         const payload = await adminListTransactions(params, accessToken);
         if (!ignore) {
-          const items = Array.isArray(payload) ? payload : payload.items ?? [];
-          setTransactions(items);
+          setTransactions(payload.rows);
         }
       } catch (err) {
         if (!ignore) {
-          setTransactions([]);
-          setError(err.message ?? "Unable to load transactions.");
+          if (!handleAuthError(err)) {
+            setTransactions([]);
+            setFeedback({ type: "error", message: err.message ?? "Unable to load transactions." });
+          }
         }
       } finally {
         if (!ignore) {
@@ -61,7 +62,7 @@ function AdminTransactions() {
     return () => {
       ignore = true;
     };
-  }, [filters, accessToken]);
+  }, [filters, accessToken, handleAuthError]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
@@ -77,19 +78,9 @@ function AdminTransactions() {
 
       <div className={styles.filters}>
         <label>
-          <span>Status</span>
-          <select name="status" value={filters.status} onChange={handleFilterChange}>
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Provider</span>
-          <select name="provider" value={filters.provider} onChange={handleFilterChange}>
-            {providerOptions.map((option) => (
+          <span>Type</span>
+          <select name="type" value={filters.type} onChange={handleFilterChange}>
+            {typeOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -116,11 +107,29 @@ function AdminTransactions() {
             placeholder="789"
           />
         </label>
+        <label>
+          <span>From date</span>
+          <input
+            type="date"
+            name="fromDate"
+            value={filters.fromDate}
+            onChange={handleFilterChange}
+          />
+        </label>
+        <label>
+          <span>To date</span>
+          <input
+            type="date"
+            name="toDate"
+            value={filters.toDate}
+            onChange={handleFilterChange}
+          />
+        </label>
       </div>
 
-      {error && (
+      {feedback.message && (
         <p className={styles.error} role="alert">
-          {error}
+          {feedback.message}
         </p>
       )}
 
@@ -128,6 +137,8 @@ function AdminTransactions() {
         <table>
           <thead>
             <tr>
+              <th>Txn #</th>
+              <th>Type</th>
               <th>Provider</th>
               <th>Amount</th>
               <th>Status</th>
@@ -144,10 +155,16 @@ function AdminTransactions() {
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, "-");
               return (
-                <tr key={txn.transaction_id}>
+                <tr key={txn.txn_id ?? txn.transaction_id ?? txn.id}>
+                  <td>{txn.txn_id ?? txn.transaction_id ?? txn.id ?? "—"}</td>
+                  <td>{txn.type || "—"}</td>
                   <td>{txn.provider || "—"}</td>
                   <td>
-                    {txn.amount ? `${txn.amount} ${txn.currency ?? ""}`.trim() : "—"}
+                    {txn.amount_vnd
+                      ? `${txn.amount_vnd} ${txn.currency ?? "VND"}`
+                      : txn.amount
+                      ? `${txn.amount} ${txn.currency ?? ""}`.trim()
+                      : "—"}
                   </td>
                   <td>
                     <span
@@ -158,7 +175,7 @@ function AdminTransactions() {
                       {statusValue ? statusValue.replace(/_/g, " ") : "—"}
                     </span>
                   </td>
-                  <td>{txn.reference || txn.external_id || "—"}</td>
+                  <td>{txn.ref || txn.reference || txn.external_id || "—"}</td>
                   <td>{txn.invoice_id ?? "—"}</td>
                   <td>{txn.user?.email || txn.user_id || "—"}</td>
                   <td>
@@ -171,14 +188,14 @@ function AdminTransactions() {
             })}
             {!loading && transactions.length === 0 && (
               <tr>
-                <td colSpan="7" className={styles.emptyCell}>
+                <td colSpan="9" className={styles.emptyCell}>
                   No transactions yet.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
-                <td colSpan="7" className={styles.emptyCell}>
+                <td colSpan="9" className={styles.emptyCell}>
                   Loading transactions…
                 </td>
               </tr>

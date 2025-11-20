@@ -82,6 +82,13 @@
   color: #0f172a;
 }
 
+.helper {
+  margin: 0.2rem 0 0.4rem;
+  color: #5b6475;
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
 .sign-up-form {
   display: flex;
   flex-direction: column;
@@ -157,6 +164,26 @@
 
 .primary-btn:active {
   transform: translateY(1px);
+}
+
+.primary-btn:disabled {
+  background: #b5c7f8;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.error-message,
+.success-message {
+  margin: -0.25rem 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.error-message {
+  color: #ef4444;
+}
+
+.success-message {
+  color: #16a34a;
 }
 
 .signin-cta {

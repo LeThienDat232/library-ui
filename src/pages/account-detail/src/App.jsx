@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./AccountPage.module.css";
 import webshelfLogo from "./assets/webshelf-logo.png";
 import {
+  checkoutCart,
   fetchCart,
   fetchLoanHistory,
   fetchLoans,
+  cancelLoan,
+  fetchLoanQr,
+  fetchBookById,
+  removeCartItem,
+  updateCartItem,
 } from "../../../api/library.js";
-import { useAuthToken } from "../../../contexts/AuthContext.jsx";
+import { useAuthToken, useIsAdmin } from "../../../contexts/AuthContext.jsx";
 
 const FALLBACK_COVER =
   "https://images.unsplash.com/photo-1455885666463-1f31f32b4fe5?auto=format&fit=crop&w=400&q=60";
@@ -180,6 +186,67 @@ function normalizeLoan(rawLoan, index = 0) {
   };
 }
 
+function needsEnrichment(item) {
+  const title = item.title || "";
+  const author = item.author || "";
+  return (
+    !item.cover ||
+    item.cover === FALLBACK_COVER ||
+    title.toLowerCase().startsWith("untitled") ||
+    author.toLowerCase().startsWith("unknown")
+  );
+}
+
+async function enrichLoansWithBooks(loans) {
+  const enriched = [...loans];
+  const lookupIds = new Set();
+  enriched.forEach((loan) => {
+    loan.items?.forEach((item) => {
+      if (needsEnrichment(item) && item.bookId !== undefined && item.bookId !== null) {
+        lookupIds.add(item.bookId);
+      }
+    });
+  });
+  if (lookupIds.size === 0) return enriched;
+
+  const bookMap = new Map();
+  await Promise.all(
+    Array.from(lookupIds).map(async (bookId) => {
+      try {
+        const book = await fetchBookById(bookId);
+        if (book) {
+          bookMap.set(bookId, book);
+          const asString = bookId?.toString?.();
+          if (asString) {
+            bookMap.set(asString, book);
+          }
+        }
+      } catch (error) {
+        console.warn("Unable to enrich book", bookId, error);
+      }
+    })
+  );
+
+  return enriched.map((loan) => ({
+    ...loan,
+    items: loan.items.map((item) => {
+      const book = bookMap.get(item.bookId);
+      if (!book) return item;
+      return {
+        ...item,
+        title: book.title ?? item.title,
+        author: book.author ?? item.author,
+        cover:
+          book.cover ??
+          book.cover_url ??
+          item.cover ??
+          item.cover_url ??
+          FALLBACK_COVER,
+      };
+    }),
+  }));
+}
+
 function filterCartItems(items, query) {
   if (!Array.isArray(items)) return [];
   const term = query.trim().toLowerCase();
@@ -206,6 +273,14 @@ function filterOrders(orders, query) {
       const author = item.author?.toLowerCase() ?? "";
       return title.includes(term) || author.includes(term);
     });
+  });
+}
+
+function deriveHistoryFromLoans(rawLoans) {
+  if (!Array.isArray(rawLoans)) return [];
+  return rawLoans.filter((loan) => {
+    const key = getStatusMeta(loan.status).key;
+    return key === "returned" || key === "cancelled";
   });
 }
 
@@ -237,6 +312,10 @@ function CartPage() {
   const [cart, setCart] = useState({ code: "", items: [] });
   const [cartLoading, setCartLoading] = useState(false);
   const [cartError, setCartError] = useState("");
+  const [cartActionStatus, setCartActionStatus] = useState({
+    type: "info",
+    message: "",
+  });
   const [loans, setLoans] = useState([]);
   const [loansLoading, setLoansLoading] = useState(false);
   const [loansError, setLoansError] = useState("");
@@ -244,112 +323,165 @@ function CartPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [openReviewOrderId, setOpenReviewOrderId] = useState(null);
+  const [loanActionState, setLoanActionState] = useState({});
+  const [loanActionMessage, setLoanActionMessage] = useState("");
+  const [updatingItemId, setUpdatingItemId] = useState(null);
+  const [removingItemId, setRemovingItemId] = useState(null);
+  const [borrowing, setBorrowing] = useState(false);
   const navigate = useNavigate();
   const accessToken = useAuthToken();
+  const isAdmin = useIsAdmin();
+  const isMountedRef = useRef(true);
+  const cartRequestIdRef = useRef(0);
+  const loansRequestIdRef = useRef(0);
+  const historyRequestIdRef = useRef(0);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const loadCart = useCallback(async () => {
     if (!accessToken) return;
-    let ignore = false;
-    async function loadCart() {
-      try {
-        setCartLoading(true);
-        setCartError("");
-        const payload = await fetchCart(accessToken);
-        if (!ignore) {
-          setCart(normalizeCartResponse(payload));
-        }
-      } catch (error) {
-        if (!ignore) {
-          setCart({ code: "", items: [] });
-          setCartError(error.message ?? "Failed to load your cart.");
-        }
-      } finally {
-        if (!ignore) {
-          setCartLoading(false);
-        }
-      }
+    const requestId = ++cartRequestIdRef.current;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      setCartLoading(true);
+      setCartError("");
+      const payload = await fetchCart(accessToken, { signal: controller.signal });
+      if (!isMountedRef.current || requestId !== cartRequestIdRef.current) return;
+      setCart(normalizeCartResponse(payload));
+    } catch (error) {
+      console.warn("Cart load failed", error);
+      if (!isMountedRef.current || requestId !== cartRequestIdRef.current) return;
+      setCart({ code: "", items: [] });
+      setCartError(
+        error.name === "AbortError"
+          ? "Loading cart timed out. Please retry."
+          : error.message ?? "Failed to load your cart."
+      );
+    } finally {
+      clearTimeout(timer);
+      if (!isMountedRef.current || requestId !== cartRequestIdRef.current) return;
+      setCartLoading(false);
     }
+  }, [accessToken]);
+
+  const loadLoans = useCallback(async () => {
+    if (!accessToken) return;
+    const requestId = ++loansRequestIdRef.current;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      setLoansLoading(true);
+      setLoansError("");
+      const payload = await fetchLoans(accessToken, {}, { signal: controller.signal });
+      const list = Array.isArray(payload?.items) ? payload.items : payload;
+      const normalized = (Array.isArray(list) ? list : [])
+        .map(normalizeLoan)
+        .filter(Boolean);
+      const enriched = await enrichLoansWithBooks(normalized);
+      if (!isMountedRef.current || requestId !== loansRequestIdRef.current) return;
+      setLoans(enriched);
+    } catch (error) {
+      console.warn("Loans load failed", error);
+      if (!isMountedRef.current || requestId !== loansRequestIdRef.current) return;
+      setLoans([]);
+      setLoansError(
+        error.name === "AbortError"
+          ? "Loading loans timed out. Please retry."
+          : error.message ?? "Failed to load loans."
+      );
+    } finally {
+      clearTimeout(timer);
+      if (!isMountedRef.current || requestId !== loansRequestIdRef.current) return;
+      setLoansLoading(false);
+    }
+  }, [accessToken]);
+
+  const loadHistory = useCallback(async () => {
+    if (!accessToken) return;
+    const requestId = ++historyRequestIdRef.current;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      setHistoryLoading(true);
+      setHistoryError("");
+      const payload = await fetchLoanHistory(accessToken, {}, { signal: controller.signal });
+      const list = Array.isArray(payload?.items) ? payload.items : payload;
+      const normalized = (Array.isArray(list) ? list : [])
+        .map(normalizeLoan)
+        .filter(Boolean);
+      const enriched = await enrichLoansWithBooks(normalized);
+      if (!isMountedRef.current || requestId !== historyRequestIdRef.current) return;
+      setHistory(enriched);
+    } catch (error) {
+      console.warn("History load failed", error);
+      if (!isMountedRef.current || requestId !== historyRequestIdRef.current) return;
+      const fallback = deriveHistoryFromLoans(loans);
+      setHistory(fallback);
+      const baseMessage =
+        error.name === "AbortError"
+          ? "Loading history timed out. Please retry."
+          : error.message ?? "Failed to load history.";
+      setHistoryError(
+        fallback.length
+          ? `${baseMessage} Showing recent returned/cancelled loans instead.`
+          : baseMessage
+      );
+    } finally {
+      clearTimeout(timer);
+      if (!isMountedRef.current || requestId !== historyRequestIdRef.current) return;
+      setHistoryLoading(false);
+    }
+  }, [accessToken, loans]);
+
+  useEffect(() => {
     loadCart();
-    return () => {
-      ignore = true;
-    };
-  }, [accessToken]);
+  }, [loadCart, activeTab]);
 
   useEffect(() => {
-    if (!accessToken) return;
-    let ignore = false;
-    async function loadLoans() {
-      try {
-        setLoansLoading(true);
-        setLoansError("");
-        const payload = await fetchLoans(accessToken);
-        const list = Array.isArray(payload?.items) ? payload.items : payload;
-        if (!ignore) {
-          const normalized = (Array.isArray(list) ? list : [])
-            .map(normalizeLoan)
-            .filter(Boolean);
-          setLoans(normalized);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setLoans([]);
-          setLoansError(error.message ?? "Failed to load loans.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoansLoading(false);
-        }
-      }
+    if (activeTab === "reading" || activeTab === "history") {
+      loadLoans();
     }
-    loadLoans();
-    return () => {
-      ignore = true;
-    };
-  }, [accessToken]);
+  }, [activeTab, loadLoans]);
 
   useEffect(() => {
-    if (!accessToken) return;
-    let ignore = false;
-    async function loadHistory() {
-      try {
-        setHistoryLoading(true);
-        setHistoryError("");
-        const payload = await fetchLoanHistory(accessToken);
-        const list = Array.isArray(payload?.items) ? payload.items : payload;
-        if (!ignore) {
-          const normalized = (Array.isArray(list) ? list : [])
-            .map(normalizeLoan)
-            .filter(Boolean);
-          setHistory(normalized);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setHistory([]);
-          setHistoryError(error.message ?? "Failed to load history.");
-        }
-      } finally {
-        if (!ignore) {
-          setHistoryLoading(false);
-        }
-      }
+    if (activeTab === "history") {
+      loadHistory();
     }
-    loadHistory();
-    return () => {
-      ignore = true;
-    };
-  }, [accessToken]);
+  }, [activeTab, loadHistory]);
 
   const filteredCartItems = useMemo(
     () => filterCartItems(cart.items, searchValue),
     [cart.items, searchValue]
   );
-  const filteredLoans = useMemo(
-    () => filterOrders(loans, searchValue),
-    [loans, searchValue]
+  const readingLoans = useMemo(
+    () =>
+      loans.filter((loan) => {
+        const key = getStatusMeta(loan.status).key;
+        return key === "reserved" || key === "borrowing" || key === "overdue";
+      }),
+    [loans]
+  );
+  const historyLoans = useMemo(
+    () =>
+      history.filter((loan) => {
+        const key = getStatusMeta(loan.status).key;
+        return key === "returned" || key === "cancelled";
+      }),
+    [history]
+  );
+  const filteredReadingLoans = useMemo(
+    () => filterOrders(readingLoans, searchValue),
+    [readingLoans, searchValue]
   );
   const filteredHistory = useMemo(
-    () => filterOrders(history, searchValue),
-    [history, searchValue]
+    () => filterOrders(historyLoans, searchValue),
+    [historyLoans, searchValue]
   );
 
   const getTabButtonClass = (tab) =>
@@ -363,6 +495,152 @@ function CartPage() {
     navigate(`/book/${item.bookId}`);
   };
 
+  const handleEditItem = async (item) => {
+    if (!item?.bookId) {
+      setCartActionStatus({
+        type: "error",
+        message: "Missing book id for this item.",
+      });
+      return;
+    }
+    const currentQty = Number(item.qty ?? 1);
+    const input = window.prompt(
+      "Update quantity (0 removes the book from your cart):",
+      Number.isFinite(currentQty) ? currentQty : 1
+    );
+    if (input === null) return;
+    const nextQty = Number.parseInt(input, 10);
+    if (!Number.isFinite(nextQty) || nextQty < 0) {
+      setCartActionStatus({
+        type: "error",
+        message: "Please enter a valid quantity (0 or more).",
+      });
+      return;
+    }
+    try {
+      setUpdatingItemId(item.id);
+      setCartActionStatus({ type: "info", message: "" });
+      await updateCartItem(item.bookId, nextQty, accessToken);
+      await loadCart();
+      setCartActionStatus({
+        type: "info",
+        message: nextQty === 0 ? "Item removed from cart." : "Quantity updated.",
+      });
+    } catch (error) {
+      setCartActionStatus({
+        type: "error",
+        message: error.message ?? "Unable to update this item.",
+      });
+    } finally {
+      setUpdatingItemId(null);
+    }
+  };
+
+  const handleRemoveItem = async (item) => {
+    if (!item?.bookId) {
+      setCartActionStatus({
+        type: "error",
+        message: "Missing book id for this item.",
+      });
+      return;
+    }
+    try {
+      setRemovingItemId(item.id);
+      setCartActionStatus({ type: "info", message: "" });
+      await removeCartItem(item.bookId, accessToken);
+      await loadCart();
+      setCartActionStatus({
+        type: "info",
+        message: "Item removed from cart.",
+      });
+    } catch (error) {
+      setCartActionStatus({
+        type: "error",
+        message: error.message ?? "Unable to remove this item.",
+      });
+    } finally {
+      setRemovingItemId(null);
+    }
+  };
+
+  const handleBorrow = async () => {
+    if ((cart.items?.length ?? 0) === 0 || borrowing) return;
+    try {
+      setBorrowing(true);
+      setCartActionStatus({ type: "info", message: "" });
+      await checkoutCart(accessToken);
+      await Promise.all([loadCart(), loadLoans(), loadHistory()]);
+      setCartActionStatus({
+        type: "info",
+        message: "Checkout successful. See Reading Books for your reservation.",
+      });
+    } catch (error) {
+      setCartActionStatus({
+        type: "error",
+        message: error.message ?? "Unable to place your checkout.",
+      });
+    } finally {
+      setBorrowing(false);
+    }
+  };
+
+  const handleShowQr = async (order) => {
+    if (!order?.id) return;
+    const actionKey = order.id;
+    setLoanActionMessage("");
+    setLoanActionState((prev) => ({ ...prev, [actionKey]: "qr" }));
+    try {
+      const response = await fetchLoanQr(order.id, accessToken);
+      if (!response.ok) {
+        throw new Error(`Unable to load QR (${response.status})`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const popup = window.open();
+      if (popup) {
+        popup.location.href = objectUrl;
+        popup.opener = null;
+        setLoanActionMessage("QR code opened in a new tab.");
+      } else {
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = order.code ? `${order.code}-qr.png` : "qr.png";
+        link.rel = "noopener noreferrer";
+        link.target = "_blank";
+        link.click();
+        setLoanActionMessage("QR code downloaded. Open the file to view.");
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch (error) {
+      setLoanActionMessage(error.message ?? "Unable to load QR code.");
+    } finally {
+      setLoanActionState((prev) => ({ ...prev, [actionKey]: null }));
+    }
+  };
+
+  const handleCancelReservation = async (order) => {
+    if (!order?.id) return;
+    const actionKey = order.id;
+    setLoanActionMessage("");
+    setLoanActionState((prev) => ({ ...prev, [actionKey]: "cancel" }));
+    try {
+      await cancelLoan(order.id, accessToken);
+      await Promise.all([loadLoans(), loadHistory()]);
+      setLoanActionMessage("Reservation cancelled.");
+    } catch (error) {
+      const status = error?.status ? ` (status ${error.status})` : "";
+      const detail =
+        error?.payload?.message || error?.payload?.error || error?.message;
+      setLoanActionMessage(
+        detail
+          ? `${detail}${status}`
+          : `Unable to cancel this reservation${status}.`
+      );
+    } finally {
+      setLoanActionState((prev) => ({ ...prev, [actionKey]: null }));
+    }
+  };
+
   const renderCart = () => {
     if (cartLoading) {
       return <p className={styles["state-message"]}>Loading your cart…</p>;
@@ -374,10 +652,17 @@ function CartPage() {
         </p>
       );
     }
-    if (filteredCartItems.length === 0) {
+    if ((cart.items?.length ?? 0) === 0) {
       return (
         <p className={styles["state-message"]}>
           Your cart is empty right now.
+        </p>
+      );
+    }
+    if (filteredCartItems.length === 0) {
+      return (
+        <p className={styles["state-message"]}>
+          No cart items match your search.
         </p>
       );
     }
@@ -390,6 +675,17 @@ function CartPage() {
           </p>
           <p>{filteredCartItems.length} item(s)</p>
         </div>
+        {cartActionStatus.message && (
+          <p
+            className={`${styles["cart-note"]} ${
+              cartActionStatus.type === "error"
+                ? styles["cart-note-error"]
+                : ""
+            }`.trim()}
+          >
+            {cartActionStatus.message}
+          </p>
+        )}
         <div className={styles["loan-items"]}>
           {filteredCartItems.map((book) => (
             <div className={styles["loan-item"]} key={book.id}>
@@ -410,14 +706,24 @@ function CartPage() {
                     <button
                       className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
                       type="button"
-                      disabled
+                      onClick={() => handleEditItem(book)}
+                      disabled={
+                        updatingItemId === book.id ||
+                        removingItemId === book.id ||
+                        borrowing
+                      }
                     >
                       Edit
                     </button>
                     <button
                       className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
                       type="button"
-                      disabled
+                      onClick={() => handleRemoveItem(book)}
+                      disabled={
+                        updatingItemId === book.id ||
+                        removingItemId === book.id ||
+                        borrowing
+                      }
                     >
                       Remove
                     </button>
@@ -431,9 +737,10 @@ function CartPage() {
           <button
             className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
             type="button"
-            disabled={filteredCartItems.length === 0}
+            disabled={(cart.items?.length ?? 0) === 0 || borrowing}
+            onClick={handleBorrow}
           >
-            Borrow
+            {borrowing ? "Borrowing…" : "Borrow"}
           </button>
         </div>
       </div>
@@ -451,19 +758,24 @@ function CartPage() {
         </p>
       );
     }
-    if (filteredLoans.length === 0) {
+    if (filteredReadingLoans.length === 0) {
       return (
         <p className={styles["state-message"]}>
-          No active loans to show right now.
+          No reserved or borrowing books to show right now.
         </p>
       );
     }
-    return filteredLoans.map((order) => {
-      const meta = getStatusMeta(order.status);
-      const stateClass = styles[`loan-card-${meta.key}`] || "";
-      const pillClass = styles[`status-${meta.key}`] || styles["status-default"];
-      const dateValue =
-        meta.key === "reserved"
+    return (
+      <>
+        {loanActionMessage && (
+          <p className={styles["cart-note"]}>{loanActionMessage}</p>
+        )}
+        {filteredReadingLoans.map((order) => {
+          const meta = getStatusMeta(order.status);
+          const stateClass = styles[`loan-card-${meta.key}`] || "";
+          const pillClass = styles[`status-${meta.key}`] || styles["status-default"];
+          const dateValue =
+            meta.key === "reserved"
           ? order.pickupBy
           : meta.key === "returned"
           ? order.returnedOn
@@ -513,16 +825,20 @@ function CartPage() {
                 <button
                   className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
                   type="button"
-                  disabled
+                  onClick={() => handleShowQr(order)}
+                  disabled={loanActionState[order.id] === "qr"}
                 >
-                  Show QR Code
+                  {loanActionState[order.id] === "qr" ? "Loading…" : "Show QR Code"}
                 </button>
                 <button
                   className={`${styles["pill-btn"]} ${styles["pill-btn-danger"]}`}
                   type="button"
-                  disabled
+                  onClick={() => handleCancelReservation(order)}
+                  disabled={loanActionState[order.id] === "cancel"}
                 >
-                  Cancel Reservation
+                  {loanActionState[order.id] === "cancel"
+                    ? "Cancelling…"
+                    : "Cancel Reservation"}
                 </button>
               </div>
             ) : meta.key === "borrowing" || meta.key === "overdue" ? (
@@ -537,7 +853,9 @@ function CartPage() {
           </div>
         </div>
       );
-    });
+    })}
+      </>
+    );
   };
 
   const renderHistory = () => {
@@ -554,15 +872,23 @@ function CartPage() {
     if (filteredHistory.length === 0) {
       return (
         <p className={styles["state-message"]}>
-          No completed loans recorded yet.
+          No returned or cancelled loans recorded yet.
         </p>
       );
     }
     return filteredHistory.map((order) => {
+      const meta = getStatusMeta(order.status);
       const returnedDate = formatDate(order.returnedOn || order.dueDate);
-      const isMenuOpen = openReviewOrderId === order.id;
+      const stateClass = styles[`loan-card-${meta.key}`] || "";
+      const statusClass =
+        styles[`status-${meta.key}`] || styles["status-default"];
+      const isReturned = meta.key === "returned";
+      const isMenuOpen = isReturned && openReviewOrderId === order.id;
       return (
-        <div className={styles["loan-card"]} key={order.id}>
+        <div
+          className={`${styles["loan-card"]} ${stateClass}`.trim()}
+          key={order.id}
+        >
           <div className={styles["loan-items"]}>
             {order.items.map((item) => (
               <div className={styles["loan-item"]} key={item.id}>
@@ -583,42 +909,49 @@ function CartPage() {
             ))}
           </div>
           <div className={styles["loan-card-right"]}>
+            <span className={`${styles["status-pill"]} ${statusClass}`}>
+              {meta.label}
+            </span>
             {returnedDate && (
               <p className={styles["loan-return"]}>
                 Returned On: <span>{returnedDate}</span>
               </p>
             )}
             <p className={styles["loan-id"]}>{order.code}</p>
-            <button
-              className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
-              type="button"
-              onClick={() => {
-                if (order.items.length <= 1) {
-                  handleNavigateToBook(order.items[0]);
-                  return;
-                }
-                setOpenReviewOrderId((prev) =>
-                  prev === order.id ? null : order.id
-                );
-              }}
-              disabled={!order.items.length}
-            >
-              Write Review
-            </button>
-            {isMenuOpen && order.items.length > 1 && (
-              <div className={styles["review-picker"]}>
-                <p>Select a book to review</p>
-                {order.items.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleNavigateToBook(item)}
-                    disabled={!item.bookId}
-                  >
-                    {item.title}
-                  </button>
-                ))}
-              </div>
+            {isReturned && (
+              <>
+                <button
+                  className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
+                  type="button"
+                  onClick={() => {
+                    if (order.items.length <= 1) {
+                      handleNavigateToBook(order.items[0]);
+                      return;
+                    }
+                    setOpenReviewOrderId((prev) =>
+                      prev === order.id ? null : order.id
+                    );
+                  }}
+                  disabled={!order.items.length}
+                >
+                  Review
+                </button>
+                {isMenuOpen && order.items.length > 1 && (
+                  <div className={styles["review-picker"]}>
+                    <p>Select a book to review</p>
+                    {order.items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleNavigateToBook(item)}
+                        disabled={!item.bookId}
+                      >
+                        {item.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -637,25 +970,27 @@ function CartPage() {
       <header className={styles["account-header"]}>
         <div className={styles["account-header-inner"]}>
           <div className={styles["brand-block"]}>
+            <span className={styles["brand-name"]}>WEBSHELF</span>
+            <span className={styles["brand-divider"]} />
             <img src={webshelfLogo} alt="Webshelf logo" />
-            <div className={styles["brand-copy"]}>
-              <span className={styles["brand-name"]}>WEBSHELF</span>
-            </div>
           </div>
 
           <div className={styles["header-right"]}>
-            <nav className={styles["top-nav"]}>
-              <button
-                type="button"
-                onClick={() => setActiveTab("cart")}
-                className={styles["link-reset"]}
-              >
-                Cart
-              </button>
-            </nav>
-            <div className={styles["user-avatar"]}>
-              <span />
-            </div>
+            <button
+              type="button"
+              className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]} ${styles["header-home-btn"]}`}
+              onClick={() => navigate("/")}
+            >
+              Return Home
+            </button>
+            <button
+              type="button"
+              className={styles["avatar-btn"]}
+              onClick={() => navigate("/account")}
+              aria-label="Go to account settings"
+            >
+              <span aria-hidden="true">👤</span>
+            </button>
           </div>
         </div>
       </header>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import styles from "./AdminReviews.module.css";
 import {
   adminListReviews,
@@ -6,6 +6,7 @@ import {
   adminShowReview,
 } from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
+import useAdminApiError from "../../hooks/useAdminApiError.js";
 
 const statusOptions = [
   { value: "pending", label: "Pending" },
@@ -19,6 +20,11 @@ function AdminReviews() {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const notifyAuthError = useCallback(
+    (message) => setFeedback({ type: "error", message }),
+    []
+  );
+  const handleAuthError = useAdminApiError(notifyAuthError);
 
   useEffect(() => {
     let ignore = false;
@@ -32,13 +38,14 @@ function AdminReviews() {
         if (filters.userId.trim()) params.user_id = filters.userId.trim();
         const payload = await adminListReviews(params, accessToken);
         if (!ignore) {
-          const items = Array.isArray(payload) ? payload : payload.items ?? [];
-          setReviews(items);
+          setReviews(payload.rows);
         }
       } catch (error) {
         if (!ignore) {
-          setFeedback({ type: "error", message: error.message });
-          setReviews([]);
+          if (!handleAuthError(error)) {
+            setFeedback({ type: "error", message: error.message });
+            setReviews([]);
+          }
         }
       } finally {
         if (!ignore) {
@@ -51,7 +58,7 @@ function AdminReviews() {
     return () => {
       ignore = true;
     };
-  }, [filters, accessToken]);
+  }, [filters, accessToken, handleAuthError]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
@@ -64,7 +71,9 @@ function AdminReviews() {
       setFeedback({ type: "success", message: "Review hidden." });
       setReviews((prev) => prev.filter((review) => review.review_id !== reviewId));
     } catch (error) {
-      setFeedback({ type: "error", message: error.message });
+      if (!handleAuthError(error)) {
+        setFeedback({ type: "error", message: error.message });
+      }
     }
   };
 
@@ -74,7 +83,9 @@ function AdminReviews() {
       setFeedback({ type: "success", message: "Review approved." });
       setReviews((prev) => prev.filter((review) => review.review_id !== reviewId));
     } catch (error) {
-      setFeedback({ type: "error", message: error.message });
+      if (!handleAuthError(error)) {
+        setFeedback({ type: "error", message: error.message });
+      }
     }
   };
 
@@ -161,7 +172,9 @@ function AdminReviews() {
                   </td>
                   <td>{review.rating ?? "—"}</td>
                   <td>
-                    <p className={styles.reviewBody}>{review.content}</p>
+                    <p className={styles.reviewBody}>
+                      {review.content || review.comment || review.body || "—"}
+                    </p>
                   </td>
                   <td>
                     <span

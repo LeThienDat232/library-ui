@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./BookDetail.module.css";
+import { addBookToCart } from "../../../api/library.js";
+import { useAuth } from "../../../contexts/AuthContext.jsx";
 
 const defaultCover =
   "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=480&q=60";
@@ -20,6 +22,7 @@ const ratingLevels = [5, 4, 3, 2, 1];
 
 function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const navigate = useNavigate();
+  const { session: contextSession, accessToken: contextToken } = useAuth();
   const displayBook = book ?? fallbackBook;
   const genres = displayBook.genres ?? [];
   const primaryGenre = genres[0]?.name;
@@ -38,8 +41,17 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const accessToken = authSession?.accessToken ?? authSession?.token ?? "";
-  const hasSession = Boolean(accessToken || authSession?.userId);
+  const [cartStatus, setCartStatus] = useState({ type: "idle", message: "" });
+  const [cartSubmitting, setCartSubmitting] = useState(false);
+  const session = authSession ?? contextSession;
+  const accessToken =
+    contextToken ||
+    session?.accessToken ||
+    session?.token ||
+    "";
+  const hasSession = Boolean(
+    accessToken || session?.userId || session?.user?.user_id
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -85,6 +97,55 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
     const combined = sameAuthor.length > 0 ? sameAuthor : backupList;
     return combined.slice(0, 4);
   }, [books, displayBook]);
+
+  useEffect(() => {
+    setCartStatus({ type: "idle", message: "" });
+    setCartSubmitting(false);
+  }, [displayBook?.book_id]);
+
+  const handleAddToCart = async () => {
+    if (!displayBook?.book_id) {
+      setCartStatus({
+        type: "error",
+        message: "We could not find this book ID.",
+      });
+      return;
+    }
+    if (!hasSession) {
+      setCartStatus({
+        type: "error",
+        message: "Please sign in to add books to your cart.",
+      });
+      navigate("/login");
+      return;
+    }
+    try {
+      setCartSubmitting(true);
+      setCartStatus({ type: "info", message: "Adding to cart…" });
+      await addBookToCart(displayBook.book_id, 1, accessToken);
+      setCartStatus({
+        type: "success",
+        message: "Added to your cart. View it from the Cart tab.",
+      });
+    } catch (error) {
+      const unauthorized = error?.status === 401;
+      const serverMessage =
+        error?.payload?.error ||
+        error?.payload?.message ||
+        error?.response?.message;
+      setCartStatus({
+        type: "error",
+        message: unauthorized
+          ? "Your session expired. Please sign in again."
+          : serverMessage || error.message || "Unable to add this title right now.",
+      });
+      if (unauthorized) {
+        navigate("/login");
+      }
+    } finally {
+      setCartSubmitting(false);
+    }
+  };
 
   return (
     <div className={styles.app}>
@@ -154,7 +215,24 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                       </span>
                     </div>
 
-                    <button className={styles['primary-btn']}>Add To Cart</button>
+                    <button
+                      className={styles['primary-btn']}
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={cartSubmitting}
+                    >
+                      {cartSubmitting ? "Adding…" : "Add To Cart"}
+                    </button>
+                    {cartStatus.message && (
+                      <p
+                        className={`${styles['cart-status']} ${
+                          styles[`cart-status-${cartStatus.type}`] || ""
+                        }`}
+                        role={cartStatus.type === "error" ? "alert" : undefined}
+                      >
+                        {cartStatus.message}
+                      </p>
+                    )}
                   </div>
                 </div>
 

@@ -17,11 +17,17 @@
   color: #475569;
 }
 
+.searchRow {
+  width: 100%;
+  max-width: 460px;
+}
+
 .searchRow input {
   width: 100%;
   border-radius: 12px;
   border: 1px solid #cbd5f5;
   padding: 10px 14px;
+  box-sizing: border-box;
 }
 
 .feedbackSuccess,
