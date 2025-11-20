@@ -143,6 +143,23 @@ export async function fetchLoans(accessToken, params = {}, options = {}) {
   return parseResponse(response, "Unable to load your loans");
 }
 
+export async function fetchLoanById(loanId, accessToken, options = {}) {
+  if (loanId === undefined || loanId === null || loanId === "") {
+    throw new Error("Missing loan id.");
+  }
+  const parsedId =
+    typeof loanId === "string" ? Number.parseInt(loanId, 10) : loanId;
+  const numericLoanId = Number.isFinite(parsedId) ? parsedId : Number(loanId);
+  if (!Number.isFinite(numericLoanId)) {
+    throw new Error("Loan id is invalid.");
+  }
+  const response = await fetch(`${API_BASE_URL}/loans/${numericLoanId}`, {
+    headers: authHeaders(accessToken),
+    signal: options.signal,
+  });
+  return parseResponse(response, "Unable to find that loan");
+}
+
 export async function fetchLoanHistory(
   accessToken,
   params = {},
@@ -184,6 +201,23 @@ export async function cancelLoan(loanId, accessToken, options = {}) {
     }
     throw error;
   }
+}
+
+export async function renewLoan(loanId, accessToken) {
+  if (loanId === undefined || loanId === null) {
+    throw new Error("Missing loan id.");
+  }
+  const parsedId =
+    typeof loanId === "string" ? Number.parseInt(loanId, 10) : loanId;
+  const numericLoanId = Number.isFinite(parsedId) ? parsedId : Number(loanId);
+  if (!Number.isFinite(numericLoanId)) {
+    throw new Error("Loan id is invalid.");
+  }
+  const response = await fetch(`${API_BASE_URL}/loans/${numericLoanId}/renew`, {
+    method: "POST",
+    headers: authHeaders(accessToken),
+  });
+  return parseResponse(response, "Unable to renew this loan");
 }
 
 export async function fetchLoanQr(loanId, accessToken, options = {}) {

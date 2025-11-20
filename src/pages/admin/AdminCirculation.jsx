@@ -9,6 +9,7 @@ import {
 } from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
 import useAdminApiError from "../../hooks/useAdminApiError.js";
+import { fetchLoanById, fetchBookById } from "../../api/library.js";
 
 function AdminCirculation() {
   const [tokenInput, setTokenInput] = useState("");
@@ -25,19 +26,66 @@ function AdminCirculation() {
     )
   );
 
+  const enrichLoanItems = useCallback(async (rawLoan) => {
+    if (!rawLoan) return rawLoan;
+    const list = rawLoan.books || rawLoan.items || rawLoan.loan_items;
+    if (!Array.isArray(list) || list.length === 0) {
+      return rawLoan;
+    }
+    const needsLookup = list.some(
+      (item) => item?.book_id && !item.title && !item.book?.title
+    );
+    if (!needsLookup) {
+      return rawLoan;
+    }
+    const hydratedItems = await Promise.all(
+      list.map(async (item) => {
+        if (!item?.book_id || item.title || item.book?.title) {
+          return item;
+        }
+        try {
+          const bookDetails = await fetchBookById(item.book_id);
+          return {
+            ...item,
+            book: bookDetails,
+            title: item.title ?? bookDetails.title,
+            author: item.author ?? bookDetails.author,
+          };
+        } catch {
+          return item;
+        }
+      })
+    );
+    const nextLoan = { ...rawLoan };
+    if (rawLoan.books) nextLoan.books = hydratedItems;
+    if (rawLoan.items) nextLoan.items = hydratedItems;
+    if (rawLoan.loan_items) nextLoan.loan_items = hydratedItems;
+    return nextLoan;
+  }, []);
+
   const performScan = useCallback(
     async (tokenValue) => {
       const trimmed = (tokenValue ?? tokenInput).trim();
       if (!trimmed) {
-        setActionState({ type: "error", message: "Enter a QR token or ticket code first." });
+        setActionState({
+          type: "error",
+          message: "Enter a QR token, code, or loan ID first.",
+        });
         setLoan(null);
         return;
       }
+      const numericLoanId = /^\d+$/.test(trimmed)
+        ? Number.parseInt(trimmed, 10)
+        : null;
       try {
         setLoading(true);
         setActionState({ type: "info", message: "" });
-        const payload = await adminScan(trimmed, accessToken);
-        setLoan(payload.loan ?? payload);
+        const payload = numericLoanId
+          ? await fetchLoanById(numericLoanId, accessToken)
+          : await adminScan(trimmed, accessToken);
+        const normalizedLoan = payload.loan ?? payload;
+        const hydratedLoan = await enrichLoanItems(normalizedLoan);
+        setLoan(hydratedLoan);
         setLastToken(trimmed);
       } catch (error) {
         setLoan(null);
@@ -48,7 +96,7 @@ function AdminCirculation() {
         setLoading(false);
       }
     },
-    [accessToken, tokenInput, handleAuthError]
+    [accessToken, tokenInput, handleAuthError, enrichLoanItems]
   );
 
   const handleScanSubmit = async (event) => {
@@ -122,7 +170,13 @@ function AdminCirculation() {
     }
   }, [loan]);
 
-  const borrower = loan?.user || loan?.member || loan?.borrower;
+  const borrower =
+    loan?.user ||
+    loan?.member ||
+    loan?.borrower ||
+    (loan?.user_id
+      ? { name: `User #${loan.user_id}`, email: loan?.user_email || "" }
+      : null);
   const renewCount = loan?.renew_count ?? loan?.renewals ?? loan?.renewal_count ?? 0;
 
   return (
@@ -137,12 +191,12 @@ function AdminCirculation() {
 
       <form className={styles.scanForm} onSubmit={handleScanSubmit}>
         <label className={styles.field}>
-          <span>QR token / loan code</span>
+          <span>QR token or loan ID</span>
           <input
             type="text"
             value={tokenInput}
             onChange={(event) => setTokenInput(event.target.value)}
-            placeholder="EX: loan_9fd8c..."
+            placeholder="EX: 13 or loan_9fd8c..."
             disabled={loading || actionLoading}
           />
         </label>

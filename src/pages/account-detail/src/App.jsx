@@ -12,6 +12,7 @@ import {
   fetchBookById,
   removeCartItem,
   updateCartItem,
+  renewLoan,
 } from "../../../api/library.js";
 import { useAuthToken, useIsAdmin } from "../../../contexts/AuthContext.jsx";
 
@@ -284,6 +285,15 @@ function deriveHistoryFromLoans(rawLoans) {
   });
 }
 
+function mergeLoanLists(primary = [], secondary = []) {
+  const map = new Map();
+  [...primary, ...secondary].forEach((loan) => {
+    if (!loan) return;
+    map.set(loan.id, loan);
+  });
+  return Array.from(map.values());
+}
+
 function getStatusMeta(status) {
   if (RESERVED_STATUSES.has(status)) {
     return { key: "reserved", label: "Reserved", dateLabel: "Pickup By" };
@@ -328,6 +338,8 @@ function CartPage() {
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [removingItemId, setRemovingItemId] = useState(null);
   const [borrowing, setBorrowing] = useState(false);
+  const [qtyDrafts, setQtyDrafts] = useState({});
+  const [selectedCartItemId, setSelectedCartItemId] = useState(null);
   const navigate = useNavigate();
   const accessToken = useAuthToken();
   const isAdmin = useIsAdmin();
@@ -455,6 +467,17 @@ function CartPage() {
     }
   }, [activeTab, loadHistory]);
 
+  useEffect(() => {
+    const nextDrafts = {};
+    (cart.items ?? []).forEach((item) => {
+      const fallbackQty = Number.isFinite(Number(item.qty))
+        ? Number(item.qty)
+        : 1;
+      nextDrafts[item.id] = String(fallbackQty);
+    });
+    setQtyDrafts(nextDrafts);
+  }, [cart.items]);
+
   const filteredCartItems = useMemo(
     () => filterCartItems(cart.items, searchValue),
     [cart.items, searchValue]
@@ -468,12 +491,15 @@ function CartPage() {
     [loans]
   );
   const historyLoans = useMemo(
-    () =>
-      history.filter((loan) => {
+    () => {
+      const derived = deriveHistoryFromLoans(loans);
+      const merged = mergeLoanLists(history, derived);
+      return merged.filter((loan) => {
         const key = getStatusMeta(loan.status).key;
         return key === "returned" || key === "cancelled";
-      }),
-    [history]
+      });
+    },
+    [history, loans]
   );
   const filteredReadingLoans = useMemo(
     () => filterOrders(readingLoans, searchValue),
@@ -483,6 +509,19 @@ function CartPage() {
     () => filterOrders(historyLoans, searchValue),
     [historyLoans, searchValue]
   );
+
+  useEffect(() => {
+    if (filteredCartItems.length === 0) {
+      setSelectedCartItemId(null);
+      return;
+    }
+    const hasSelection = filteredCartItems.some(
+      (item) => item.id === selectedCartItemId
+    );
+    if (!hasSelection) {
+      setSelectedCartItemId(filteredCartItems[0].id);
+    }
+  }, [filteredCartItems, selectedCartItemId]);
 
   const getTabButtonClass = (tab) =>
     `${styles["tabs-btn"]} ${
@@ -495,6 +534,45 @@ function CartPage() {
     navigate(`/book/${item.bookId}`);
   };
 
+  const handleSelectCartItem = (itemId) => {
+    setSelectedCartItemId(itemId);
+  };
+
+  const getCartItemUiState = (book) => {
+    const qtyValue = qtyDrafts[book.id] ?? String(book.qty ?? 1);
+    const isItemBusy =
+      updatingItemId === book.id ||
+      removingItemId === book.id ||
+      borrowing;
+    return {
+      qtyValue,
+      isItemBusy,
+      updateLabel: updatingItemId === book.id ? "Saving…" : "Update",
+      removeLabel: removingItemId === book.id ? "Removing…" : "Remove",
+    };
+  };
+
+  const handleQtyInputChange = (itemId, value) => {
+    if (value === "" || /^[0-9]+$/.test(value)) {
+      setQtyDrafts((prev) => ({ ...prev, [itemId]: value }));
+    }
+  };
+
+  const handleAdjustQty = (itemId, delta) => {
+    setQtyDrafts((prev) => {
+      const relatedItem = cart.items.find((book) => book.id === itemId);
+      const fallbackQty = Number.isFinite(Number(relatedItem?.qty))
+        ? Number(relatedItem.qty)
+        : 1;
+      const parsedCurrent = Number.parseInt(prev[itemId], 10);
+      const currentQty = Number.isFinite(parsedCurrent)
+        ? parsedCurrent
+        : fallbackQty;
+      const nextQty = Math.max(0, currentQty + delta);
+      return { ...prev, [itemId]: String(nextQty) };
+    });
+  };
+
   const handleEditItem = async (item) => {
     if (!item?.bookId) {
       setCartActionStatus({
@@ -503,13 +581,18 @@ function CartPage() {
       });
       return;
     }
-    const currentQty = Number(item.qty ?? 1);
-    const input = window.prompt(
-      "Update quantity (0 removes the book from your cart):",
-      Number.isFinite(currentQty) ? currentQty : 1
-    );
-    if (input === null) return;
-    const nextQty = Number.parseInt(input, 10);
+    const draftValue = qtyDrafts[item.id];
+    if (draftValue === "") {
+      setCartActionStatus({
+        type: "error",
+        message: "Please enter a quantity before updating.",
+      });
+      return;
+    }
+    const fallbackQty = Number.isFinite(Number(item.qty))
+      ? Number(item.qty)
+      : 1;
+    const nextQty = Number.parseInt(draftValue ?? fallbackQty ?? 1, 10);
     if (!Number.isFinite(nextQty) || nextQty < 0) {
       setCartActionStatus({
         type: "error",
@@ -522,6 +605,7 @@ function CartPage() {
       setCartActionStatus({ type: "info", message: "" });
       await updateCartItem(item.bookId, nextQty, accessToken);
       await loadCart();
+      setQtyDrafts((prev) => ({ ...prev, [item.id]: String(nextQty) }));
       setCartActionStatus({
         type: "info",
         message: nextQty === 0 ? "Item removed from cart." : "Quantity updated.",
@@ -574,6 +658,7 @@ function CartPage() {
         type: "info",
         message: "Checkout successful. See Reading Books for your reservation.",
       });
+      setActiveTab("reading");
     } catch (error) {
       setCartActionStatus({
         type: "error",
@@ -666,6 +751,10 @@ function CartPage() {
         </p>
       );
     }
+    const selectedItem =
+      filteredCartItems.find((item) => item.id === selectedCartItemId) ??
+      null;
+    const selectedItemUi = selectedItem ? getCartItemUiState(selectedItem) : null;
     return (
       <div className={styles["cart-card"]}>
         <div className={styles["cart-header"]}>
@@ -687,61 +776,111 @@ function CartPage() {
           </p>
         )}
         <div className={styles["loan-items"]}>
-          {filteredCartItems.map((book) => (
-            <div className={styles["loan-item"]} key={book.id}>
-              <img
-                className={styles["loan-cover"]}
-                src={book.cover}
-                alt={book.title}
-              />
-              <div className={styles["loan-info"]}>
-                <h3>{book.title}</h3>
-                <p className={styles["loan-author"]}>By {book.author}</p>
-                {book.description && (
-                  <p className={styles["loan-desc"]}>{book.description}</p>
-                )}
-                <div className={styles["cart-row"]}>
-                  <p className={styles["loan-qty"]}>Qty: {book.qty}</p>
-                  <div className={styles["cart-actions"]}>
-                    <button
-                      className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
-                      type="button"
-                      onClick={() => handleEditItem(book)}
-                      disabled={
-                        updatingItemId === book.id ||
-                        removingItemId === book.id ||
-                        borrowing
-                      }
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
-                      type="button"
-                      onClick={() => handleRemoveItem(book)}
-                      disabled={
-                        updatingItemId === book.id ||
-                        removingItemId === book.id ||
-                        borrowing
-                      }
-                    >
-                      Remove
-                    </button>
+          {filteredCartItems.map((book) => {
+            const { qtyValue, isItemBusy } = getCartItemUiState(book);
+            const isSelected = book.id === selectedCartItemId;
+            const loanItemClass = `${styles["loan-item"]} ${
+              isSelected ? styles["cart-item-selected"] : ""
+            }`.trim();
+            return (
+              <div
+                className={loanItemClass}
+                key={book.id}
+                onClick={() => handleSelectCartItem(book.id)}
+              >
+                <img
+                  className={styles["loan-cover"]}
+                  src={book.cover}
+                  alt={book.title}
+                />
+                <div className={styles["loan-info"]}>
+                  <h3>{book.title}</h3>
+                  <p className={styles["loan-author"]}>By {book.author}</p>
+                  {book.description && (
+                    <p className={styles["loan-desc"]}>{book.description}</p>
+                  )}
+                  <div className={styles["cart-row"]}>
+                    <div className={styles["qty-control"]}>
+                      <span className={styles["loan-qty"]}>Qty</span>
+                      <div className={styles["qty-input-wrapper"]}>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          className={styles["qty-input"]}
+                          value={qtyValue}
+                          disabled={isItemBusy}
+                          onChange={(event) =>
+                            handleQtyInputChange(book.id, event.target.value)
+                          }
+                          onFocus={() => handleSelectCartItem(book.id)}
+                        />
+                        <div className={styles["qty-stepper"]}>
+                          <button
+                            type="button"
+                            aria-label="Increase quantity"
+                            disabled={isItemBusy}
+                            onClick={() => {
+                              handleSelectCartItem(book.id);
+                              handleAdjustQty(book.id, 1);
+                            }}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Decrease quantity"
+                            disabled={isItemBusy}
+                            onClick={() => {
+                              handleSelectCartItem(book.id);
+                              handleAdjustQty(book.id, -1);
+                            }}
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div className={styles["cart-footer"]}>
-          <button
-            className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
-            type="button"
-            disabled={(cart.items?.length ?? 0) === 0 || borrowing}
-            onClick={handleBorrow}
-          >
-            {borrowing ? "Borrowing…" : "Borrow"}
-          </button>
+          <div className={styles["cart-selection"]}>
+            <p>
+              Selected:{" "}
+              <span>{selectedItem ? selectedItem.title : "No book selected"}</span>
+            </p>
+          </div>
+          <div className={styles["cart-button-row"]}>
+            <button
+              className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
+              type="button"
+              onClick={() => selectedItem && handleEditItem(selectedItem)}
+              disabled={!selectedItemUi || selectedItemUi.isItemBusy}
+            >
+              {selectedItemUi?.updateLabel ?? "Update"}
+            </button>
+            <button
+              className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
+              type="button"
+              onClick={() => selectedItem && handleRemoveItem(selectedItem)}
+              disabled={!selectedItemUi || selectedItemUi.isItemBusy}
+            >
+              {selectedItemUi?.removeLabel ?? "Remove"}
+            </button>
+            <button
+              className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
+              type="button"
+              disabled={(cart.items?.length ?? 0) === 0 || borrowing}
+              onClick={handleBorrow}
+            >
+              {borrowing ? "Borrowing…" : "Borrow"}
+            </button>
+          </div>
         </div>
       </div>
     );

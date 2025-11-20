@@ -9,7 +9,12 @@ function useAdminApiError(onExpired) {
   return useCallback(
     (error) => {
       const rawMessage = error?.message || "";
-      if (error?.status === 401 || /expired|unauthorized|token/i.test(rawMessage)) {
+      const status = error?.status;
+      const isAuthStatus = status === 401 || status === 403;
+      const looksExpired = /expired|unauthorized|forbidden|login required|jwt/i.test(
+        rawMessage
+      );
+      if (isAuthStatus || looksExpired) {
         if (typeof onExpired === "function") {
           onExpired("Session expired. Please sign in again.");
         }

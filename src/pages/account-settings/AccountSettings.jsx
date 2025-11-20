@@ -2,14 +2,47 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./AccountSettings.module.css";
 
-const PROFILE_ENDPOINT = "https://library-api-dicz.onrender.com/users/me";
+const PROFILE_ENDPOINT = "https://library-api-dicz.onrender.com/auth/profile";
+const PASSWORD_ENDPOINT = "https://library-api-dicz.onrender.com/auth/password";
+
+const extractNameParts = (profile) => {
+  if (!profile || typeof profile !== "object") {
+    return { firstName: "", lastName: "" };
+  }
+  const firstName =
+    profile.firstName ||
+    profile.first_name ||
+    profile.given_name ||
+    profile.givenName ||
+    "";
+  const lastName =
+    profile.lastName ||
+    profile.last_name ||
+    profile.family_name ||
+    profile.familyName ||
+    "";
+  if (firstName || lastName) {
+    return { firstName, lastName };
+  }
+  const displayName =
+    profile.fullName ||
+    profile.full_name ||
+    profile.name ||
+    profile.username ||
+    "";
+  if (!displayName) {
+    return { firstName: "", lastName: "" };
+  }
+  const [first, ...rest] = displayName.trim().split(/\s+/);
+  return { firstName: first ?? "", lastName: rest.join(" ") };
+};
 
 function AccountSettings({ authSession, onLogout }) {
   const navigate = useNavigate();
   const [formValues, setFormValues] = useState({
     firstName: "",
     lastName: "",
-    password: "",
+    currentPassword: "",
     newPassword: "",
   });
   const [statusMessage, setStatusMessage] = useState("");
@@ -19,10 +52,11 @@ function AccountSettings({ authSession, onLogout }) {
 
   useEffect(() => {
     if (authSession?.user) {
+      const parts = extractNameParts(authSession.user);
       setFormValues((prev) => ({
         ...prev,
-        firstName: authSession.user.firstName || prev.firstName,
-        lastName: authSession.user.lastName || prev.lastName,
+        ...(parts.firstName ? { firstName: parts.firstName } : {}),
+        ...(parts.lastName ? { lastName: parts.lastName } : {}),
       }));
     }
   }, [authSession]);
@@ -39,32 +73,100 @@ function AccountSettings({ authSession, onLogout }) {
       setStatusMessage("You must sign in before updating your profile.");
       return;
     }
+    const trimmedFirst = formValues.firstName.trim();
+    const trimmedLast = formValues.lastName.trim();
+    const wantsPasswordChange = Boolean(formValues.newPassword);
+    if (!trimmedFirst && !trimmedLast && !wantsPasswordChange) {
+      setStatusType("info");
+      setStatusMessage("There is nothing to update yet.");
+      return;
+    }
+    if (wantsPasswordChange && !formValues.currentPassword) {
+      setStatusType("error");
+      setStatusMessage("Enter your current password to set a new one.");
+      return;
+    }
 
     try {
       setSubmitting(true);
       setStatusMessage("");
-      const response = await fetch(PROFILE_ENDPOINT, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          firstName: formValues.firstName,
-          lastName: formValues.lastName,
-          password: formValues.password,
-          newPassword: formValues.newPassword,
-        }),
-      });
+      const pending = [];
+      let profileUpdated = false;
+      let passwordUpdated = false;
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        const message = payload?.error || payload?.message || "Unable to update profile.";
-        throw new Error(message);
+      if (trimmedFirst || trimmedLast) {
+        const profilePayload = {
+          ...(trimmedFirst ? { first_name: trimmedFirst } : {}),
+          ...(trimmedLast ? { last_name: trimmedLast } : {}),
+        };
+        const request = fetch(PROFILE_ENDPOINT, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(profilePayload),
+        }).then(async (response) => {
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null);
+            const message =
+              payload?.error ||
+              payload?.message ||
+              "Unable to update your profile.";
+            throw new Error(message);
+          }
+          profileUpdated = true;
+        });
+        pending.push(request);
       }
 
+      if (wantsPasswordChange) {
+        const request = fetch(PASSWORD_ENDPOINT, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            current_password: formValues.currentPassword,
+            new_password: formValues.newPassword,
+          }),
+        }).then(async (response) => {
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null);
+            const message =
+              payload?.error ||
+              payload?.message ||
+              "Unable to change your password.";
+            throw new Error(message);
+          }
+          passwordUpdated = true;
+        });
+        pending.push(request);
+      }
+
+      if (pending.length === 0) {
+        setStatusType("info");
+        setStatusMessage("There is nothing to update yet.");
+        return;
+      }
+
+      await Promise.all(pending);
+
       setStatusType("success");
-      setStatusMessage("Account updated successfully.");
+      const segments = [];
+      if (profileUpdated) segments.push("profile details");
+      if (passwordUpdated) segments.push("password");
+      const successText =
+        segments.length > 0
+          ? `${segments.join(" and ")} updated successfully.`
+          : "Account updated successfully.";
+      setStatusMessage(successText);
+      setFormValues((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+      }));
     } catch (error) {
       setStatusType("error");
       setStatusMessage(
@@ -100,7 +202,11 @@ function AccountSettings({ authSession, onLogout }) {
           </div>
         </header>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form
+          className={styles.form}
+          onSubmit={handleSubmit}
+          autoComplete="off"
+        >
           <div className={styles.row}>
             <label className={styles.field}>
               <span>First name</span>
@@ -110,6 +216,7 @@ function AccountSettings({ authSession, onLogout }) {
                 value={formValues.firstName}
                 onChange={handleChange}
                 placeholder="First name"
+                autoComplete="given-name"
                 required
               />
             </label>
@@ -122,6 +229,7 @@ function AccountSettings({ authSession, onLogout }) {
                 value={formValues.lastName}
                 onChange={handleChange}
                 placeholder="Last name"
+                autoComplete="family-name"
                 required
               />
             </label>
@@ -131,10 +239,11 @@ function AccountSettings({ authSession, onLogout }) {
             <span>Current password</span>
             <input
               type="password"
-              name="password"
-              value={formValues.password}
+              name="currentPassword"
+              value={formValues.currentPassword}
               onChange={handleChange}
               placeholder="Enter current password"
+              autoComplete="current-password"
             />
           </label>
 
@@ -146,6 +255,7 @@ function AccountSettings({ authSession, onLogout }) {
               value={formValues.newPassword}
               onChange={handleChange}
               placeholder="Enter new password"
+              autoComplete="new-password"
             />
           </label>
 
