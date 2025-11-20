@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./BookDetail.module.css";
-import { addBookToCart } from "../../../api/library.js";
+import {
+  addBookToCart,
+  fetchBookReviews,
+  submitBookReview,
+} from "../../../api/library.js";
 import { useAuth } from "../../../contexts/AuthContext.jsx";
 
 const defaultCover =
@@ -54,24 +58,44 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   );
 
   useEffect(() => {
+    if (!displayBook?.book_id) {
+      setReviews([]);
+      setReviewsError("");
+      setReviewsLoading(false);
+      return;
+    }
     let ignore = false;
-    async function fetchReviews() {
-      if (!displayBook?.book_id) return;
+    const controller = new AbortController();
+    async function loadReviews() {
       try {
         setReviewsLoading(true);
         setReviewsError("");
-        const response = await fetch(
-          `https://library-api-dicz.onrender.com/books/${displayBook.book_id}/reviews`
-        );
-        if (!response.ok) throw new Error("Reviews not available yet.");
-        const payload = await response.json();
+        const payload = await fetchBookReviews(displayBook.book_id, {
+          signal: controller.signal,
+          accessToken,
+        });
         if (!ignore) {
-          setReviews(Array.isArray(payload) ? payload : payload.items ?? []);
+          setReviews(Array.isArray(payload) ? payload : []);
         }
       } catch (error) {
+        if (error.name === "AbortError" || ignore) {
+          return;
+        }
+        const unauthorized = error.status === 401;
+        const notFound = error.status === 404;
         if (!ignore) {
           setReviews([]);
-          setReviewsError(error.message ?? "Failed to load reviews.");
+          if (notFound) {
+            setReviewsError("");
+            return;
+          }
+          setReviewsError(
+            unauthorized
+              ? hasSession
+                ? "Your session expired. Please sign in again."
+                : "Sign in to view community reviews."
+              : error.message ?? "Failed to load reviews."
+          );
         }
       } finally {
         if (!ignore) {
@@ -79,11 +103,12 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
         }
       }
     }
-    fetchReviews();
+    loadReviews();
     return () => {
       ignore = true;
+      controller.abort();
     };
-  }, [displayBook?.book_id]);
+  }, [displayBook?.book_id, accessToken, hasSession]);
 
   const youMightAlsoLike = useMemo(() => {
     if (!displayBook) return [];
@@ -298,27 +323,41 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                   try {
                     setReviewSubmitting(true);
                     setReviewsError("");
-                    const response = await fetch(
-                      `https://library-api-dicz.onrender.com/books/${displayBook.book_id}/reviews`,
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: `Bearer ${accessToken}`,
-                        },
-                        body: JSON.stringify({
-                          rating: reviewRating,
-                          body: reviewText,
-                        }),
-                      }
+                    const created = await submitBookReview(
+                      displayBook.book_id,
+                      { rating: reviewRating, body: reviewText },
+                      accessToken
                     );
-                    if (!response.ok) {
-                      throw new Error("Unable to submit review. Confirm borrowing status.");
-                    }
                     setReviewText("");
                     setReviewRating(5);
-                    const updated = await response.json();
-                    setReviews((prev) => [updated, ...prev]);
+                    const normalizedReview = (() => {
+                      if (!created || typeof created !== "object") return null;
+                      if (created.review && typeof created.review === "object") {
+                        return created.review;
+                      }
+                      if (
+                        created.data &&
+                        typeof created.data === "object" &&
+                        !Array.isArray(created.data)
+                      ) {
+                        return created.data;
+                      }
+                      if (Array.isArray(created.items) && created.items.length > 0) {
+                        return created.items[0];
+                      }
+                      return created;
+                    })();
+                    if (
+                      normalizedReview &&
+                      typeof normalizedReview === "object" &&
+                      (normalizedReview.review_id !== undefined ||
+                        normalizedReview.rating !== undefined ||
+                        normalizedReview.body ||
+                        normalizedReview.comment ||
+                        normalizedReview.text)
+                    ) {
+                      setReviews((prev) => [normalizedReview, ...prev]);
+                    }
                   } catch (error) {
                     setReviewsError(error.message ?? "Unable to submit review.");
                   } finally {

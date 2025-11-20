@@ -34,9 +34,18 @@
 }
 
 .home-brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 1rem;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.home-brand:focus-visible {
+  outline: 2px solid #1f7bff;
+  outline-offset: 4px;
+  border-radius: 999px;
 }
 
 .brand-divider {
@@ -509,6 +518,35 @@
   transform: translateY(-2px);
 }
 
+.home-back-to-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: #1f7bff;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 20px 35px rgba(31, 123, 255, 0.35);
+  display: grid;
+  place-items: center;
+  z-index: 30;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.home-back-to-top:hover {
+  transform: translateY(-3px);
+}
+
+.home-back-to-top:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
 /* ---------------- FOOTER ---------------- */
 
 .home-footer {
@@ -596,5 +634,10 @@
 
   .home-book-card {
     grid-template-columns: 90px minmax(0, 1fr);
+  }
+
+  .home-back-to-top {
+    bottom: 90px;
+    right: 16px;
   }
 }

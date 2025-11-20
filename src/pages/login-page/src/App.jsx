@@ -74,9 +74,15 @@ function LoginPage({ onLogin }) {
       </section>
 
       <section className={styles['form-pane']}>
-        <header className={styles.brand}>
-          <img src={webshelfLogo} alt="Webshelf logo" className={styles['brand-logo']} />
-          <p className={styles['brand-title']}>WEBSHELF</p>
+        <header aria-label="Webshelf brand">
+          <Link
+            to="/"
+            className={styles.brand}
+            aria-label="Go to the Webshelf homepage"
+          >
+            <img src={webshelfLogo} alt="Webshelf logo" className={styles['brand-logo']} />
+            <span className={styles['brand-title']}>WEBSHELF</span>
+          </Link>
         </header>
 
         <h1 className={styles['welcome-heading']}>Nice to see you again</h1>

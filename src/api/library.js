@@ -24,6 +24,19 @@ function buildUrl(path, params) {
   return url.toString();
 }
 
+function normalizeNumberId(rawValue, label = "Identifier") {
+  if (rawValue === undefined || rawValue === null || rawValue === "") {
+    throw new Error(`Missing ${label.toLowerCase()}.`);
+  }
+  const parsed =
+    typeof rawValue === "string" ? Number.parseInt(rawValue, 10) : rawValue;
+  const numeric = Number.isFinite(parsed) ? parsed : Number(rawValue);
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`${label} is invalid.`);
+  }
+  return numeric;
+}
+
 async function parseResponse(response, fallbackMessage) {
   let payload = null;
   try {
@@ -60,12 +73,7 @@ export async function addBookToCart(bookId, quantity = 1, accessToken) {
   if (bookId === undefined || bookId === null) {
     throw new Error("Missing book identifier.");
   }
-  const parsedId =
-    typeof bookId === "string" ? Number.parseInt(bookId, 10) : bookId;
-  const numericBookId = Number.isFinite(parsedId) ? parsedId : Number(bookId);
-  if (!Number.isFinite(numericBookId)) {
-    throw new Error("Book identifier is invalid.");
-  }
+  const numericBookId = normalizeNumberId(bookId, "Book identifier");
   const numericQuantity =
     typeof quantity === "number"
       ? Math.max(1, Math.floor(quantity))
@@ -90,12 +98,7 @@ export async function updateCartItem(bookId, quantity, accessToken) {
   if (quantity === undefined || quantity === null || quantity === "") {
     throw new Error("Quantity is required.");
   }
-  const parsedId =
-    typeof bookId === "string" ? Number.parseInt(bookId, 10) : bookId;
-  const numericBookId = Number.isFinite(parsedId) ? parsedId : Number(bookId);
-  if (!Number.isFinite(numericBookId)) {
-    throw new Error("Book identifier is invalid.");
-  }
+  const numericBookId = normalizeNumberId(bookId, "Book identifier");
   const numericQuantity =
     typeof quantity === "number"
       ? Math.max(0, Math.floor(quantity))
@@ -114,12 +117,7 @@ export async function removeCartItem(bookId, accessToken) {
   if (bookId === undefined || bookId === null) {
     throw new Error("Missing book identifier.");
   }
-  const parsedId =
-    typeof bookId === "string" ? Number.parseInt(bookId, 10) : bookId;
-  const numericBookId = Number.isFinite(parsedId) ? parsedId : Number(bookId);
-  if (!Number.isFinite(numericBookId)) {
-    throw new Error("Book identifier is invalid.");
-  }
+  const numericBookId = normalizeNumberId(bookId, "Book identifier");
   const response = await fetch(`${API_BASE_URL}/cart/${numericBookId}`, {
     method: "DELETE",
     headers: authHeaders(accessToken),
@@ -147,12 +145,7 @@ export async function fetchLoanById(loanId, accessToken, options = {}) {
   if (loanId === undefined || loanId === null || loanId === "") {
     throw new Error("Missing loan id.");
   }
-  const parsedId =
-    typeof loanId === "string" ? Number.parseInt(loanId, 10) : loanId;
-  const numericLoanId = Number.isFinite(parsedId) ? parsedId : Number(loanId);
-  if (!Number.isFinite(numericLoanId)) {
-    throw new Error("Loan id is invalid.");
-  }
+  const numericLoanId = normalizeNumberId(loanId, "Loan id");
   const response = await fetch(`${API_BASE_URL}/loans/${numericLoanId}`, {
     headers: authHeaders(accessToken),
     signal: options.signal,
@@ -176,12 +169,7 @@ export async function cancelLoan(loanId, accessToken, options = {}) {
   if (loanId === undefined || loanId === null) {
     throw new Error("Missing loan id.");
   }
-  const parsedId =
-    typeof loanId === "string" ? Number.parseInt(loanId, 10) : loanId;
-  const numericLoanId = Number.isFinite(parsedId) ? parsedId : Number(loanId);
-  if (!Number.isFinite(numericLoanId)) {
-    throw new Error("Loan id is invalid.");
-  }
+  const numericLoanId = normalizeNumberId(loanId, "Loan id");
   const tryAdmin =
     options.allowAdminFallback !== false || options.isAdmin === true;
 
@@ -207,12 +195,7 @@ export async function renewLoan(loanId, accessToken) {
   if (loanId === undefined || loanId === null) {
     throw new Error("Missing loan id.");
   }
-  const parsedId =
-    typeof loanId === "string" ? Number.parseInt(loanId, 10) : loanId;
-  const numericLoanId = Number.isFinite(parsedId) ? parsedId : Number(loanId);
-  if (!Number.isFinite(numericLoanId)) {
-    throw new Error("Loan id is invalid.");
-  }
+  const numericLoanId = normalizeNumberId(loanId, "Loan id");
   const response = await fetch(`${API_BASE_URL}/loans/${numericLoanId}/renew`, {
     method: "POST",
     headers: authHeaders(accessToken),
@@ -224,12 +207,7 @@ export async function fetchLoanQr(loanId, accessToken, options = {}) {
   if (loanId === undefined || loanId === null) {
     throw new Error("Missing loan id.");
   }
-  const parsedId =
-    typeof loanId === "string" ? Number.parseInt(loanId, 10) : loanId;
-  const numericLoanId = Number.isFinite(parsedId) ? parsedId : Number(loanId);
-  if (!Number.isFinite(numericLoanId)) {
-    throw new Error("Loan id is invalid.");
-  }
+  const numericLoanId = normalizeNumberId(loanId, "Loan id");
   const response = await fetch(
     `${API_BASE_URL}/loans/${numericLoanId}/qr.png`,
     {
@@ -263,6 +241,85 @@ export async function fetchBookById(bookId, options = {}) {
     throw new Error("Book not found.");
   }
   return book;
+}
+
+export async function fetchBookReviews(bookId, options = {}) {
+  const numericBookId = normalizeNumberId(bookId, "Book identifier");
+  const headers = { Accept: "application/json" };
+  const token =
+    options.accessToken ||
+    options.token ||
+    options.authToken ||
+    options.access_token ||
+    "";
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/reviews/book/${numericBookId}`,
+      {
+        method: "GET",
+        headers,
+        signal: options.signal,
+      }
+    );
+    const payload = await parseResponse(response, "Unable to load reviews");
+    return normalizeList(payload);
+  } catch (error) {
+    if (error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function submitBookReview(bookId, review, accessToken) {
+  const numericBookId = normalizeNumberId(bookId, "Book identifier");
+  const ratingValue = Number(review?.rating ?? review?.score ?? 0);
+  const textValue =
+    review?.body ?? review?.comment ?? review?.content ?? review?.text ?? "";
+  const payload = {
+    book_id: numericBookId,
+    rating: Number.isFinite(ratingValue) ? ratingValue : 0,
+    body: textValue,
+    comment: textValue,
+    title: review?.title || undefined,
+  };
+  const response = await fetch(
+    `${API_BASE_URL}/reviews/book/${numericBookId}`,
+    {
+      method: "POST",
+      headers: authHeaders(accessToken, { "Content-Type": "application/json" }),
+      body: JSON.stringify(payload),
+    }
+  );
+  return parseResponse(response, "Unable to submit review");
+}
+
+function normalizeList(payload) {
+  if (!payload) {
+    return [];
+  }
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (Array.isArray(payload.items)) {
+    return payload.items;
+  }
+  if (Array.isArray(payload.rows)) {
+    return payload.rows;
+  }
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+  if (Array.isArray(payload.reviews)) {
+    return payload.reviews;
+  }
+  if (Array.isArray(payload.results)) {
+    return payload.results;
+  }
+  return [];
 }
 
 export { API_BASE_URL };

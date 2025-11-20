@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import styles from "./AccountPage.module.css";
 import webshelfLogo from "./assets/webshelf-logo.png";
 import {
@@ -331,7 +331,6 @@ function CartPage() {
   const [loansError, setLoansError] = useState("");
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState("");
   const [loanActionState, setLoanActionState] = useState({});
   const [loanActionMessage, setLoanActionMessage] = useState("");
   const [updatingItemId, setUpdatingItemId] = useState(null);
@@ -422,7 +421,6 @@ function CartPage() {
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
       setHistoryLoading(true);
-      setHistoryError("");
       const payload = await fetchLoanHistory(accessToken, {}, { signal: controller.signal });
       const list = Array.isArray(payload?.items) ? payload.items : payload;
       const normalized = (Array.isArray(list) ? list : [])
@@ -436,15 +434,6 @@ function CartPage() {
       if (!isMountedRef.current || requestId !== historyRequestIdRef.current) return;
       const fallback = deriveHistoryFromLoans(loans);
       setHistory(fallback);
-      const baseMessage =
-        error.name === "AbortError"
-          ? "Loading history timed out. Please retry."
-          : error.message ?? "Failed to load history.";
-      setHistoryError(
-        fallback.length
-          ? `${baseMessage} Showing recent returned/cancelled loans instead.`
-          : baseMessage
-      );
     } finally {
       clearTimeout(timer);
       if (!isMountedRef.current || requestId !== historyRequestIdRef.current) return;
@@ -1037,25 +1026,15 @@ function CartPage() {
     if (historyLoading) {
       return <p className={styles["state-message"]}>Loading history…</p>;
     }
-    const historyNotice = historyError ? (
-      <p className={styles["history-inline-error"]}>
-        <strong>History temporarily unavailable.</strong>
-        <span>Showing recent returned/cancelled loans instead.</span>
-      </p>
-    ) : null;
     if (filteredHistory.length === 0) {
       return (
-        <>
-          {historyNotice}
-          <p className={styles["state-message"]}>
-            No returned or cancelled loans recorded yet.
-          </p>
-        </>
+        <p className={styles["state-message"]}>
+          No returned or cancelled loans recorded yet.
+        </p>
       );
     }
     return (
       <>
-        {historyNotice}
         {filteredHistory.map((order) => {
       const meta = getStatusMeta(order.status);
       const returnedDate = formatDate(order.returnedOn || order.dueDate);
@@ -1151,11 +1130,15 @@ function CartPage() {
       )}
       <header className={styles["account-header"]}>
         <div className={styles["account-header-inner"]}>
-          <div className={styles["brand-block"]}>
+          <Link
+            to="/"
+            className={styles["brand-block"]}
+            aria-label="Go to the Webshelf homepage"
+          >
             <span className={styles["brand-name"]}>WEBSHELF</span>
             <span className={styles["brand-divider"]} />
             <img src={webshelfLogo} alt="Webshelf logo" />
-          </div>
+          </Link>
 
           <div className={styles["header-right"]}>
             <button

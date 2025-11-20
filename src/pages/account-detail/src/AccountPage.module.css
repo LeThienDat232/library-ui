@@ -31,9 +31,18 @@
 }
 
 .brand-block {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 14px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.brand-block:focus-visible {
+  outline: 2px solid #0a61ff;
+  outline-offset: 4px;
+  border-radius: 999px;
 }
 
 .brand-name {
@@ -297,6 +306,12 @@
 .loan-item {
   display: flex;
   gap: 16px;
+  align-items: flex-start;
+}
+
+.loan-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .loan-cover {
@@ -495,15 +510,6 @@
 
 .link-reset:hover {
   text-decoration: underline;
-}
-
-.history-inline-error {
-  margin: 0 0 12px;
-  color: #b91c1c;
-  font-size: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .modal-backdrop {

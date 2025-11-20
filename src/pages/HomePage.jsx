@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 import webshelfLogo from "../assets/webshelf-logo.png";
 
@@ -29,6 +29,7 @@ function HomePage({
   const [activeGenre, setActiveGenre] = useState("All");
   const [recommendationFilter, setRecommendationFilter] = useState("popular");
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const handleBookSelection = (book) => {
     if (onBookSelect) {
@@ -121,6 +122,7 @@ function HomePage({
 
   useEffect(() => {
     const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
       if (
         window.innerHeight + window.scrollY >=
         document.body.offsetHeight - 200
@@ -153,11 +155,15 @@ function HomePage({
       <section className="home-hero">
         <div className="home-hero-inner">
           <header className="home-header">
-            <div className="home-brand">
+            <Link
+              to="/"
+              className="home-brand"
+              aria-label="Go to the Webshelf homepage"
+            >
               <span className="home-brand-name">WEBSHELF</span>
               <span className="brand-divider" />
               <img src={webshelfLogo} alt="Webshelf logo" />
-            </div>
+            </Link>
 
             <nav className="home-nav">
               <button
@@ -403,6 +409,22 @@ function HomePage({
           </div>
         </div>
       </section>
+
+      {showScrollTop && (
+        <button
+          type="button"
+          className="home-back-to-top"
+          onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            })
+          }
+          aria-label="Back to top"
+        >
+          ↑
+        </button>
+      )}
     </div>
   );
 }
