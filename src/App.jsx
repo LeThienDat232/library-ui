@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import CartPage from "./pages/account-detail/src/App.jsx";
 import AccountSettings from "./pages/account-settings/AccountSettings.jsx";
 import ResetPassword from "./pages/reset-password/ResetPassword.jsx";
-import BookDetailPage from "./pages/book-detail/src/App.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/login-page/src/App.jsx";
 import RegisterPage from "./pages/register-page/src/App.jsx";
@@ -15,6 +14,7 @@ import AdminInvoices from "./pages/admin/AdminInvoices.jsx";
 import AdminTransactions from "./pages/admin/AdminTransactions.jsx";
 import AdminReviews from "./pages/admin/AdminReviews.jsx";
 import AdminBooks from "./pages/admin/AdminBooks.jsx";
+import BookDetailRoute from "./pages/book-detail/BookDetailRoute.jsx";
 import { AuthContext, isAdminUser } from "./contexts/AuthContext.jsx";
 
 const AUTH_STORAGE_KEY = "webshelf-auth";
@@ -65,7 +65,7 @@ function App() {
       try {
         setBooksLoading(true);
         setBooksError("");
-        const params = new URLSearchParams({ limit: "20000" });
+        const params = new URLSearchParams({ limit: "25000" });
         if (searchValue.trim()) {
           params.set("title", searchValue.trim());
         }
@@ -158,9 +158,9 @@ function App() {
                 loading={booksLoading}
                 errorMessage={booksError}
                 searchValue={searchValue}
-              onSearchChange={setSearchValue}
-              onBookSelect={handleBookSelect}
-            />
+                onSearchChange={setSearchValue}
+                onBookSelect={handleBookSelect}
+              />
           }
         />
         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
@@ -168,16 +168,25 @@ function App() {
         <Route
           path="/book"
           element={
-            selectedBook ? (
-              <BookDetailPage
-                book={selectedBook}
-                books={books}
-                onBookSelect={handleBookSelect}
-                authSession={authSession}
-              />
-            ) : (
-              <Navigate to="/" replace />
-            )
+            <BookDetailRoute
+              selectedBook={selectedBook}
+              books={books}
+              onBookSelect={handleBookSelect}
+              authSession={authSession}
+              catalogById={catalogById}
+            />
+          }
+        />
+        <Route
+          path="/book/:bookId"
+          element={
+            <BookDetailRoute
+              selectedBook={selectedBook}
+              books={books}
+              onBookSelect={handleBookSelect}
+              authSession={authSession}
+              catalogById={catalogById}
+            />
           }
         />
         <Route
