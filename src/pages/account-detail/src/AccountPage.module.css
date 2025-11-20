@@ -304,6 +304,7 @@
   height: 130px;
   border-radius: 12px;
   object-fit: cover;
+  pointer-events: none;
 }
 
 .loan-info h3 {
@@ -496,37 +497,62 @@
   text-decoration: underline;
 }
 
-.review-picker {
-  margin-top: 8px;
-  background: #f3f4f6;
-  border-radius: 12px;
-  padding: 10px;
-  width: 100%;
-  max-width: 220px;
+.history-inline-error {
+  margin: 0 0 12px;
+  color: #b91c1c;
+  font-size: 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
 }
 
-.review-picker p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #4b5563;
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 20px;
 }
 
-.review-picker button {
-  border: none;
+.modal-card {
   background: #fff;
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 25px 55px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.review-picker button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.modal-card h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.modal-card p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+.modal-error {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.15);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .account-footer {

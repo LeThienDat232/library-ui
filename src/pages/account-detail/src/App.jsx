@@ -332,12 +332,13 @@ function CartPage() {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
-  const [openReviewOrderId, setOpenReviewOrderId] = useState(null);
   const [loanActionState, setLoanActionState] = useState({});
   const [loanActionMessage, setLoanActionMessage] = useState("");
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [removingItemId, setRemovingItemId] = useState(null);
   const [borrowing, setBorrowing] = useState(false);
+  const [renewDialog, setRenewDialog] = useState(null);
+  const [renewError, setRenewError] = useState("");
   const [qtyDrafts, setQtyDrafts] = useState({});
   const [selectedCartItemId, setSelectedCartItemId] = useState(null);
   const navigate = useNavigate();
@@ -528,12 +529,6 @@ function CartPage() {
       activeTab === tab ? styles["tabs-btn-active"] : ""
     }`.trim();
 
-  const handleNavigateToBook = (item) => {
-    if (!item?.bookId) return;
-    setOpenReviewOrderId(null);
-    navigate(`/book/${item.bookId}`);
-  };
-
   const handleSelectCartItem = (itemId) => {
     setSelectedCartItemId(itemId);
   };
@@ -667,6 +662,38 @@ function CartPage() {
     } finally {
       setBorrowing(false);
     }
+  };
+
+  const handleRenewLoan = (order) => {
+    if (!order?.id) return;
+    setRenewError("");
+    setRenewDialog(order);
+  };
+
+  const confirmRenewLoan = async () => {
+    if (!renewDialog?.id) return;
+    const order = renewDialog;
+    setLoanActionMessage("");
+    setLoanActionState((prev) => ({ ...prev, [order.id]: "renew" }));
+    try {
+      await renewLoan(order.id, accessToken);
+      await Promise.all([loadLoans(), loadHistory()]);
+      setLoanActionMessage("Loan renewed. Check the updated due date.");
+      setRenewDialog(null);
+      setRenewError("");
+    } catch (error) {
+      const payloadMessage =
+        error?.payload?.message || error?.message || "Unable to renew this loan.";
+      setLoanActionMessage(payloadMessage);
+      setRenewError(payloadMessage);
+    } finally {
+      setLoanActionState((prev) => ({ ...prev, [order.id]: null }));
+    }
+  };
+
+  const closeRenewDialog = () => {
+    setRenewDialog(null);
+    setRenewError("");
   };
 
   const handleShowQr = async (order) => {
@@ -958,7 +985,7 @@ function CartPage() {
                 QR Ref: <span>{order.qrRef}</span>
               </p>
             )}
-            <p className={styles["loan-id"]}>{order.code}</p>
+            <p className={styles["loan-id"]}>Loan ID # {order.id}</p>
             {meta.key === "reserved" ? (
               <div className={styles["loan-actions"]}>
                 <button
@@ -980,7 +1007,16 @@ function CartPage() {
                     : "Cancel Reservation"}
                 </button>
               </div>
-            ) : meta.key === "borrowing" || meta.key === "overdue" ? (
+            ) : meta.key === "borrowing" ? (
+              <button
+                className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
+                type="button"
+                onClick={() => handleRenewLoan(order)}
+                disabled={loanActionState[order.id] === "renew"}
+              >
+                {loanActionState[order.id] === "renew" ? "Renewing…" : "Renew"}
+              </button>
+            ) : meta.key === "overdue" ? (
               <button
                 className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
                 type="button"
@@ -1001,28 +1037,32 @@ function CartPage() {
     if (historyLoading) {
       return <p className={styles["state-message"]}>Loading history…</p>;
     }
-    if (historyError) {
-      return (
-        <p className={`${styles["state-message"]} ${styles["state-error"]}`}>
-          {historyError}
-        </p>
-      );
-    }
+    const historyNotice = historyError ? (
+      <p className={styles["history-inline-error"]}>
+        <strong>History temporarily unavailable.</strong>
+        <span>Showing recent returned/cancelled loans instead.</span>
+      </p>
+    ) : null;
     if (filteredHistory.length === 0) {
       return (
-        <p className={styles["state-message"]}>
-          No returned or cancelled loans recorded yet.
-        </p>
+        <>
+          {historyNotice}
+          <p className={styles["state-message"]}>
+            No returned or cancelled loans recorded yet.
+          </p>
+        </>
       );
     }
-    return filteredHistory.map((order) => {
+    return (
+      <>
+        {historyNotice}
+        {filteredHistory.map((order) => {
       const meta = getStatusMeta(order.status);
       const returnedDate = formatDate(order.returnedOn || order.dueDate);
       const stateClass = styles[`loan-card-${meta.key}`] || "";
       const statusClass =
         styles[`status-${meta.key}`] || styles["status-default"];
       const isReturned = meta.key === "returned";
-      const isMenuOpen = isReturned && openReviewOrderId === order.id;
       return (
         <div
           className={`${styles["loan-card"]} ${stateClass}`.trim()}
@@ -1056,46 +1096,14 @@ function CartPage() {
                 Returned On: <span>{returnedDate}</span>
               </p>
             )}
-            <p className={styles["loan-id"]}>{order.code}</p>
-            {isReturned && (
-              <>
-                <button
-                  className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
-                  type="button"
-                  onClick={() => {
-                    if (order.items.length <= 1) {
-                      handleNavigateToBook(order.items[0]);
-                      return;
-                    }
-                    setOpenReviewOrderId((prev) =>
-                      prev === order.id ? null : order.id
-                    );
-                  }}
-                  disabled={!order.items.length}
-                >
-                  Review
-                </button>
-                {isMenuOpen && order.items.length > 1 && (
-                  <div className={styles["review-picker"]}>
-                    <p>Select a book to review</p>
-                    {order.items.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleNavigateToBook(item)}
-                        disabled={!item.bookId}
-                      >
-                        {item.title}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+            <p className={styles["loan-id"]}>Loan ID # {order.id}</p>
+            {isReturned && null}
           </div>
         </div>
       );
-    });
+    })}
+      </>
+    );
   };
 
   const renderActiveTab = () => {
@@ -1106,6 +1114,41 @@ function CartPage() {
 
   return (
     <div className={styles["account-page"]}>
+      {renewDialog && (
+        <div className={styles["modal-backdrop"]}>
+          <div className={styles["modal-card"]}>
+            <h3>Renew loan #{renewDialog.id}?</h3>
+            <p>
+              We will extend the due date for{" "}
+              <strong>{renewDialog.items.length}</strong> book
+              {renewDialog.items.length === 1 ? "" : "s"} if renewals remain.
+            </p>
+            {renewError && (
+              <p className={styles["modal-error"]}>{renewError}</p>
+            )}
+            <div className={styles["modal-actions"]}>
+              <button
+                type="button"
+                className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
+                onClick={closeRenewDialog}
+                disabled={loanActionState[renewDialog.id] === "renew"}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
+                onClick={confirmRenewLoan}
+                disabled={loanActionState[renewDialog.id] === "renew"}
+              >
+                {loanActionState[renewDialog.id] === "renew"
+                  ? "Renewing…"
+                  : "Confirm Renew"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className={styles["account-header"]}>
         <div className={styles["account-header-inner"]}>
           <div className={styles["brand-block"]}>
