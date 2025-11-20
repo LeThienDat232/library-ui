@@ -1,7 +1,14 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./AdminDashboard.module.css";
-import { useAuth } from "../../contexts/AuthContext.jsx";
+import { useAuth, useAuthToken } from "../../contexts/AuthContext.jsx";
+import useAdminApiError from "../../hooks/useAdminApiError.js";
+import {
+  adminListInvoices,
+  adminListReviews,
+  adminListTransactions,
+  adminListBooks,
+} from "../../api/admin";
 
 const quickActions = [
   { label: "Circulation desk", description: "Scan tickets & confirm", path: "/admin/circulation" },
@@ -11,41 +18,183 @@ const quickActions = [
   { label: "Books", description: "Maintain catalog", path: "/admin/books" },
 ];
 
-const onboardingChecklist = [
-  "Connect a barcode or QR scanner to your circulation laptop.",
-  "Walk through the scan flow with a mock loan to rehearse demo day.",
-  "Record at least two overdue invoices so the overdue job is visible.",
-  "Save borrower emails for quick copy/paste during presentations.",
-];
+function formatCurrency(value, currency = "VND") {
+  if (value === undefined || value === null || value === "") return "—";
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "VND",
+      maximumFractionDigits: 0,
+    }).format(Number(value));
+  } catch {
+    return `${value} ${currency ?? "VND"}`.trim();
+  }
+}
 
 function AdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const accessToken = useAuthToken();
+  const [stats, setStats] = useState({
+    invoices: null,
+    reviews: null,
+    books: null,
+    transactions: [],
+  });
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const handleAuthError = useAdminApiError(
+    useCallback((message) => setFeedback(message), [])
+  );
   const firstName = useMemo(() => {
     if (!user) return "there";
     return user.firstName || user.first_name || user.name || "there";
   }, [user]);
 
+  const statCards = useMemo(
+    () => [
+      {
+        label: "Unpaid invoices",
+        value: stats.invoices ?? "—",
+        tone: (stats.invoices ?? 0) > 0 ? "warning" : "positive",
+        detail:
+          stats.invoices === null
+            ? "Syncing data…"
+            : stats.invoices === 0
+            ? "All caught up"
+            : "Needs attention",
+      },
+      {
+        label: "Pending reviews",
+        value: stats.reviews ?? "—",
+        tone: (stats.reviews ?? 0) > 0 ? "warning" : "positive",
+        detail:
+          stats.reviews === null
+            ? "Syncing data…"
+            : stats.reviews === 0
+            ? "Nothing queued"
+            : "Moderation queue",
+      },
+      {
+        label: "Recent transactions",
+        value: stats.transactions.length,
+        tone: "neutral",
+        detail: stats.transactions.length ? "Last refresh" : "No activity",
+      },
+      {
+        label: "Catalog titles",
+        value: stats.books ?? "—",
+        tone: "neutral",
+        detail: stats.books === null ? "Syncing data…" : "Admin results",
+      },
+    ],
+    [stats]
+  );
+
+  const timelineEvents = useMemo(() => {
+    return (stats.transactions || []).slice(0, 4).map((txn) => {
+      const timestamp = txn.created_at
+        ? new Date(txn.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "—";
+      const amountText =
+        txn.amount_vnd ?? txn.amount
+          ? formatCurrency(txn.amount_vnd ?? txn.amount, txn.currency ?? "VND")
+          : "";
+      const invoiceLabel = txn.invoice_id ? `Invoice #${txn.invoice_id}` : "No invoice linked";
+      return {
+        time: timestamp,
+        title: txn.provider || txn.type || "Transaction",
+        note: [txn.type ? txn.type.toUpperCase() : null, amountText, invoiceLabel]
+          .filter(Boolean)
+          .join(" • "),
+      };
+    });
+  }, [stats.transactions]);
+
+  const pendingInvoicesLabel =
+    stats.invoices === null
+      ? "Invoices snapshot"
+      : `${stats.invoices} unpaid invoice${stats.invoices === 1 ? "" : "s"}`;
+  const pendingInvoicesDescription =
+    stats.invoices === null
+      ? "Loading the latest balances from the API."
+      : stats.invoices === 0
+      ? "Everything is up to date."
+      : "Focus on the newest overdue notices before running the job.";
+
+  useEffect(() => {
+    if (!accessToken) return;
+    let ignore = false;
+    async function loadDashboard() {
+      try {
+        setLoading(true);
+        setFeedback("");
+        const [invoicePayload, reviewPayload, transactionPayload, bookPayload] = await Promise.all(
+          [
+            adminListInvoices({ status: "unpaid", limit: 5 }, accessToken),
+            adminListReviews({ status: "pending", limit: 5 }, accessToken),
+            adminListTransactions({ limit: 5 }, accessToken),
+            adminListBooks({ limit: 1 }, accessToken),
+          ]
+        );
+        if (!ignore) {
+          setStats({
+            invoices: invoicePayload.count ?? invoicePayload.rows.length,
+            reviews: reviewPayload.count ?? reviewPayload.rows.length,
+            books: bookPayload.count ?? bookPayload.rows.length,
+            transactions: transactionPayload.rows ?? [],
+          });
+        }
+      } catch (error) {
+        if (!ignore && !handleAuthError(error)) {
+          setFeedback(error.message ?? "Unable to load dashboard data.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    loadDashboard();
+    return () => {
+      ignore = true;
+    };
+  }, [accessToken, handleAuthError]);
+
   return (
     <section className={styles.page}>
-      <header className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}>Welcome back</p>
-          <h2>Hi {firstName}, ready for today&apos;s shift?</h2>
-          <p className={styles.subtitle}>
-            Use the panels below to jump into the workflows you&apos;ll showcase during the
-            defense. Everything is grouped so you can move quickly between demos.
-          </p>
-        </div>
-        <div className={styles.heroCard}>
-          <p className={styles.heroCardLabel}>Next steps</p>
-          <ul>
-            {onboardingChecklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      </header>
+      <div className={styles.heroShell}>
+        <div className={styles.heroGlow} aria-hidden="true" />
+        <header className={styles.hero}>
+          <div>
+            <p className={styles.eyebrow}>Welcome back</p>
+            <h2>Hi {firstName}, ready for today&apos;s shift?</h2>
+            <p className={styles.subtitle}>
+              Keep tabs on every desk from one place. Shortcuts, live stats, and timelines help you
+              react to patrons faster.
+            </p>
+            <div className={styles.heroMeta}>
+              <span className={styles.heroBadge}>Live</span>
+              <span>Syncs every 60 seconds</span>
+            </div>
+          </div>
+          <div className={styles.heroHighlight}>
+            <p className={styles.heroHighlightLabel}>Invoices</p>
+            <h3>{pendingInvoicesLabel}</h3>
+            <p>{pendingInvoicesDescription}</p>
+            <button
+              type="button"
+              className={styles.heroHighlightBtn}
+              onClick={() => navigate("/admin/invoices")}
+            >
+              Review invoices
+            </button>
+          </div>
+        </header>
+      </div>
 
       <section className={styles.quickGrid}>
         {quickActions.map((action) => (
@@ -64,34 +213,84 @@ function AdminDashboard() {
         ))}
       </section>
 
-      <section className={styles.statusGrid}>
-        <article className={styles.statusCard}>
-          <p className={styles.statusLabel}>Today&apos;s loans</p>
-          <h3>Live data via circulation desk</h3>
+      {feedback && (
+        <p className={styles.feedback} role="alert">
+          {feedback}
+        </p>
+      )}
+
+      <section className={styles.statsGrid}>
+        {statCards.map((card) => (
+          <article key={card.label} className={styles.statsCard}>
+            <p className={styles.statsLabel}>{card.label}</p>
+            <div className={styles.statsValueRow}>
+              <span className={styles.statsValue}>{card.value}</span>
+              <span
+                className={`${styles.statsDelta} ${
+                  styles[`statsDelta${card.tone}`] || ""
+                }`}
+              >
+                {card.detail}
+              </span>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className={styles.timelineRow}>
+        <div className={styles.timelineSection}>
+          <header className={styles.timelineHeader}>
+            <div>
+              <p className={styles.timelineEyebrow}>Today&apos;s activity</p>
+              <h3>Recent transactions</h3>
+            </div>
+            <button
+              type="button"
+              className={styles.linkBtn}
+              onClick={() => navigate("/admin/transactions")}
+            >
+              View logs
+            </button>
+          </header>
+          {loading && stats.transactions.length === 0 ? (
+            <p className={styles.muted}>Syncing activity…</p>
+          ) : timelineEvents.length > 0 ? (
+            <ul className={styles.timelineList}>
+              {timelineEvents.map((event, index) => (
+                <li key={`${event.time}-${event.title}-${index}`}>
+                  <div className={styles.timelineTime}>{event.time}</div>
+                  <div className={styles.timelineDot} aria-hidden="true" />
+                  <div>
+                    <p className={styles.timelineTitle}>{event.title}</p>
+                    <p className={styles.timelineNote}>{event.note}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.muted}>No recent transactions yet.</p>
+          )}
+        </div>
+
+        <aside className={styles.spotlightCard}>
+          <p className={styles.spotlightLabel}>Need a quick win?</p>
+          <h3>Run overdue job</h3>
           <p>
-            Head to Circulation to run the scan + confirm flow. This card is just a reminder of
-            what to present first.
+            Trigger the automation and refresh the invoices list to show how fees move from unbilled
+            to active status.
           </p>
-        </article>
-        <article className={styles.statusCard}>
-          <p className={styles.statusLabel}>Overdue fees</p>
-          <h3>Use invoices panel</h3>
-          <p>
-            Filter unpaid invoices, mark one as paid, and run the overdue job to showcase the
-            automation trigger.
-          </p>
-        </article>
-        <article className={styles.statusCard}>
-          <p className={styles.statusLabel}>Community</p>
-          <h3>Moderate reviews</h3>
-          <p>
-            Keep an eye on flagged content. Approve one review and hide another to prove both
-            endpoints are wired.
-          </p>
-        </article>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={() => navigate("/admin/invoices")}
+          >
+            Open invoices
+          </button>
+        </aside>
       </section>
     </section>
   );
 }
 
 export default AdminDashboard;
+

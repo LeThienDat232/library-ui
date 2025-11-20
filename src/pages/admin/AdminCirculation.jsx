@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./AdminCirculation.module.css";
 import {
   adminScan,
@@ -9,6 +9,8 @@ import {
 } from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
 import useAdminApiError from "../../hooks/useAdminApiError.js";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import { NotFoundException } from "@zxing/library";
 import { fetchLoanById, fetchBookById } from "../../api/library.js";
 
 function AdminCirculation() {
@@ -18,6 +20,12 @@ function AdminCirculation() {
   const [actionState, setActionState] = useState({ type: "info", message: "" });
   const [actionLoading, setActionLoading] = useState(false);
   const [lastToken, setLastToken] = useState("");
+  const [isScannerOpen, setScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState("");
+  const videoRef = useRef(null);
+  const readerRef = useRef(null);
+  const trackRef = useRef(null);
+  const [isMirrored, setMirrored] = useState(false);
   const accessToken = useAuthToken();
   const handleAuthError = useAdminApiError(
     useCallback(
@@ -25,6 +33,35 @@ function AdminCirculation() {
       []
     )
   );
+  const stopScanner = useCallback(() => {
+    if (readerRef.current) {
+      try {
+        readerRef.current.stopContinuousDecode?.();
+      } catch {
+        // ignore
+      }
+      try {
+        readerRef.current.reset?.();
+      } catch {
+        // ignore
+      }
+      readerRef.current = null;
+    }
+    const stream = videoRef.current?.srcObject;
+    if (stream && typeof stream.getTracks === "function") {
+      stream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          // ignore
+        }
+      });
+    }
+    trackRef.current = null;
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
 
   const enrichLoanItems = useCallback(async (rawLoan) => {
     if (!rawLoan) return rawLoan;
@@ -63,10 +100,95 @@ function AdminCirculation() {
     return nextLoan;
   }, []);
 
+  const parseScanInput = useCallback((rawValue) => {
+    const trimmed = (rawValue ?? "").trim();
+    if (!trimmed) {
+      return {
+        tokenValue: "",
+        numericLoanId: null,
+        shouldUseLoanId: false,
+        displayValue: "",
+      };
+    }
+    const initialIsNumeric = /^\d+$/.test(trimmed);
+    let numericLoanId = initialIsNumeric
+      ? Number.parseInt(trimmed, 10)
+      : null;
+    let tokenValue = initialIsNumeric ? "" : trimmed;
+    let displayValue = trimmed;
+    let inputWasUrl = false;
+    let tokenFromUrl = false;
+    let pathToken = "";
+
+    try {
+      const parsed = new URL(trimmed);
+      inputWasUrl = true;
+      const tokenParam =
+        parsed.searchParams.get("token") ||
+        parsed.searchParams.get("code") ||
+        parsed.searchParams.get("ticket_token") ||
+        parsed.searchParams.get("ticket") ||
+        parsed.searchParams.get("qr_token");
+      const loanParam =
+        parsed.searchParams.get("loan_id") ||
+        parsed.searchParams.get("loanId") ||
+        parsed.searchParams.get("loan");
+
+      if (loanParam && /^\d+$/.test(loanParam)) {
+        numericLoanId = Number.parseInt(loanParam, 10);
+        displayValue = loanParam.trim();
+      }
+
+      if (tokenParam) {
+        tokenValue = tokenParam.trim();
+        displayValue = tokenValue;
+        tokenFromUrl = true;
+      } else {
+        const segments = parsed.pathname
+          .split("/")
+          .map((segment) => segment.trim())
+          .filter(Boolean);
+        for (let index = segments.length - 1; index >= 0; index -= 1) {
+          const segment = decodeURIComponent(segments[index]);
+          if (!segment || /pickup|loans?|qr/i.test(segment)) continue;
+          if (segment.length < 6) continue;
+          pathToken = segment;
+          break;
+        }
+        if (pathToken) {
+          tokenValue = pathToken;
+          displayValue = pathToken;
+          tokenFromUrl = true;
+        } else if (inputWasUrl) {
+          tokenValue = "";
+        }
+      }
+    } catch {
+      // not a URL; ignore
+    }
+
+    const shouldUseLoanId =
+      numericLoanId !== null &&
+      (initialIsNumeric || (inputWasUrl && !tokenFromUrl));
+
+    return {
+      tokenValue,
+      numericLoanId,
+      shouldUseLoanId,
+      displayValue,
+    };
+  }, []);
+
   const performScan = useCallback(
-    async (tokenValue) => {
-      const trimmed = (tokenValue ?? tokenInput).trim();
-      if (!trimmed) {
+    async (inputValue) => {
+      const {
+        tokenValue,
+        numericLoanId,
+        shouldUseLoanId,
+        displayValue,
+      } =
+        parseScanInput(inputValue ?? tokenInput);
+      if (!tokenValue && numericLoanId === null) {
         setActionState({
           type: "error",
           message: "Enter a QR token, code, or loan ID first.",
@@ -74,30 +196,94 @@ function AdminCirculation() {
         setLoan(null);
         return;
       }
-      const numericLoanId = /^\d+$/.test(trimmed)
-        ? Number.parseInt(trimmed, 10)
-        : null;
+      setTokenInput(displayValue);
+      const repeatValue = shouldUseLoanId
+        ? String(numericLoanId)
+        : tokenValue || displayValue;
       try {
         setLoading(true);
         setActionState({ type: "info", message: "" });
-        const payload = numericLoanId
+        const payload = shouldUseLoanId
           ? await fetchLoanById(numericLoanId, accessToken)
-          : await adminScan(trimmed, accessToken);
+          : await adminScan(tokenValue || displayValue, accessToken);
         const normalizedLoan = payload.loan ?? payload;
         const hydratedLoan = await enrichLoanItems(normalizedLoan);
         setLoan(hydratedLoan);
-        setLastToken(trimmed);
+        setLastToken(repeatValue);
       } catch (error) {
         setLoan(null);
         if (!handleAuthError(error)) {
-          setActionState({ type: "error", message: error.message });
+          const contextMessage = displayValue
+            ? `${error.message} (value: ${displayValue})`
+            : error.message;
+          setActionState({ type: "error", message: contextMessage });
         }
       } finally {
         setLoading(false);
       }
     },
-    [accessToken, tokenInput, handleAuthError, enrichLoanItems]
+    [accessToken, tokenInput, handleAuthError, enrichLoanItems, parseScanInput]
   );
+
+  useEffect(() => {
+    if (!isScannerOpen) {
+      return undefined;
+    }
+    if (!("mediaDevices" in navigator)) {
+      setScannerError("Camera not supported in this browser.");
+      return undefined;
+    }
+    const reader = new BrowserMultiFormatReader();
+    readerRef.current = reader;
+    setScannerError("");
+    let stopped = false;
+    const constraints = {
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: "environment",
+      },
+    };
+    reader
+      .decodeFromVideoDevice(
+        null,
+        videoRef.current,
+        (result, error, controls) => {
+          if (controls?.stream) {
+            const [track] = controls.stream.getVideoTracks();
+            if (track) {
+              trackRef.current = track;
+              const facing = track.getSettings?.().facingMode;
+              setMirrored(facing === "user");
+            }
+          }
+          if (result && !stopped) {
+            const text = result.getText?.() ?? "";
+            if (import.meta.env?.DEV && text) {
+              console.info("[circulation] decoded QR:", text);
+            }
+          if (text) {
+            stopped = true;
+            stopScanner();
+            setTokenInput(text);
+            setScannerOpen(false);
+            performScan(text);
+          }
+        } else if (error && !(error instanceof NotFoundException)) {
+          setScannerError(error.message ?? "Unable to read code.");
+        }
+      },
+        constraints
+      )
+      .catch((error) => {
+        setScannerError(error.message ?? "Unable to access camera.");
+      });
+
+    return () => {
+      stopped = true;
+      stopScanner();
+    };
+  }, [isScannerOpen, performScan, stopScanner]);
 
   const handleScanSubmit = async (event) => {
     event.preventDefault();
@@ -200,9 +386,27 @@ function AdminCirculation() {
             disabled={loading || actionLoading}
           />
         </label>
-        <button type="submit" className={styles.primaryBtn} disabled={loading}>
-          {loading ? "Scanning…" : "Scan"}
-        </button>
+        <div className={styles.scanActions}>
+          <button type="submit" className={styles.primaryBtn} disabled={loading}>
+            {loading ? "Scanning…" : "Scan"}
+          </button>
+          <button
+            type="button"
+            className={styles.secondaryBtn}
+            disabled={loading || actionLoading}
+            onClick={() => {
+              if (!navigator.mediaDevices?.getUserMedia) {
+                setScannerError("Camera not supported in this browser.");
+                setScannerOpen(true);
+                return;
+              }
+              setScannerError("");
+              setScannerOpen(true);
+            }}
+          >
+            Scan with camera
+          </button>
+        </div>
       </form>
 
       {actionState.message && (
@@ -312,6 +516,81 @@ function AdminCirculation() {
       ) : (
         <div className={styles.placeholder}>
           <p>Scan a ticket to see borrower details and actions.</p>
+        </div>
+      )}
+      {isScannerOpen && (
+        <div className={styles.scannerOverlay} role="dialog" aria-modal="true">
+          <div className={styles.scannerPanel}>
+            <header className={styles.scannerHeader}>
+              <div>
+                <p className={styles.scannerLabel}>Camera scanner</p>
+                <h3>Point at the QR token</h3>
+              </div>
+          <button
+            type="button"
+            className={styles.scannerClose}
+            onClick={() => {
+              stopScanner();
+              setScannerOpen(false);
+            }}
+          >
+            ×
+          </button>
+            </header>
+            <div className={styles.scannerVideoWrapper}>
+              <video
+                ref={videoRef}
+                className={`${styles.scannerVideo} ${
+                  isMirrored ? styles.scannerVideoMirrored : ""
+                }`}
+                playsInline
+                muted
+                autoPlay
+              />
+              <div className={styles.scannerReticle} />
+            </div>
+            {scannerError && (
+              <p className={styles.scannerError} role="alert">
+                {scannerError}
+              </p>
+            )}
+            <div className={styles.scannerControls}>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={() => {
+                  const track = trackRef.current;
+                  if (
+                    track &&
+                    track.getCapabilities &&
+                    track.getCapabilities().torch
+                  ) {
+                    const settings = track.getSettings?.() ?? {};
+                    const current = Boolean(settings.torch);
+                    track
+                      .applyConstraints({ advanced: [{ torch: !current }] })
+                      .catch(() => {
+                        setScannerError("Unable to toggle flashlight on this device.");
+                      });
+                  } else {
+                    setScannerError("Flashlight not supported on this camera.");
+                  }
+                }}
+              >
+                Toggle flashlight
+              </button>
+              <button
+                type="button"
+                className={styles.dangerBtn}
+                onClick={() => {
+                  stopScanner();
+                  setScannerOpen(false);
+                }}
+              >
+                Close scanner
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

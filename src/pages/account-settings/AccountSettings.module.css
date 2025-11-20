@@ -65,6 +65,13 @@
   gap: 18px;
 }
 
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -109,4 +116,52 @@
 .successMessage {
   color: #16a34a;
   margin: 0;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.summaryIntro {
+  margin: 4px 0 0;
+  color: #6b7280;
+}
+
+.summaryList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.summaryItem {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 12px 16px;
+  background: #f9fafb;
+}
+
+.summaryLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.summaryValue {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  word-break: break-word;
+}
+
+.summaryActions {
+  display: flex;
+  justify-content: flex-end;
 }
