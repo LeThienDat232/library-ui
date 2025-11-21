@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import "./App.css";
 import CartPage from "./pages/account-detail/src/App.jsx";
 import AccountSettings from "./pages/account-settings/AccountSettings.jsx";
 import ResetPassword from "./pages/reset-password/ResetPassword.jsx";

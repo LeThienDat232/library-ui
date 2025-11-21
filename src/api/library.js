@@ -212,7 +212,8 @@ export async function fetchLoanHistory(
       headers: authHeaders(accessToken),
       signal: options.signal,
     });
-    return parseResponse(response, "Unable to load your history");
+    const payload = await parseResponse(response, "Unable to load your history");
+    return payload;
   } catch (error) {
     if (
       error?.status === 404 ||

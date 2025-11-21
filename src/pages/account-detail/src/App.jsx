@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import styles from "./AccountPage.module.css";
-import webshelfLogo from "./assets/webshelf-logo.png";
+import SiteHeader from "../../../components/SiteHeader.jsx";
+import SiteFooter from "../../../components/SiteFooter.jsx";
 import {
   checkoutCart,
   fetchCart,
@@ -413,6 +414,7 @@ function CartPage({ onBooksReload }) {
   const [renewError, setRenewError] = useState("");
   const [qtyDrafts, setQtyDrafts] = useState({});
   const [selectedCartItemId, setSelectedCartItemId] = useState(null);
+  const [footerHeight, setFooterHeight] = useState(0);
   const navigate = useNavigate();
   const accessToken = useAuthToken();
   const isAdmin = useIsAdmin();
@@ -420,11 +422,39 @@ function CartPage({ onBooksReload }) {
   const cartRequestIdRef = useRef(0);
   const loansRequestIdRef = useRef(0);
   const historyRequestIdRef = useRef(0);
+  const footerRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const node = footerRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const updateHeight = () => {
+      setFooterHeight(node.offsetHeight || 0);
+    };
+
+    updateHeight();
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(updateHeight);
+      resizeObserver.observe(node);
+    }
+
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      window.removeEventListener("resize", updateHeight);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
     };
   }, []);
 
@@ -1222,8 +1252,22 @@ function CartPage({ onBooksReload }) {
     return renderLoanCards();
   };
 
+  const footerOffset = useMemo(
+    () => Math.max(footerHeight + 20, 280),
+    [footerHeight]
+  );
+  const accountPageStyle = useMemo(
+    () => ({ paddingBottom: `${footerOffset}px` }),
+    [footerOffset]
+  );
+
   return (
-    <div className={styles["account-page"]}>
+    <div className={styles["account-page"]} style={accountPageStyle}>
+      <SiteHeader
+        isLoggedIn={Boolean(accessToken)}
+        isAdmin={isAdmin}
+        mode="cart"
+      />
       {renewDialog && (
         <div className={styles["modal-backdrop"]}>
           <div className={styles["modal-card"]}>
@@ -1259,37 +1303,6 @@ function CartPage({ onBooksReload }) {
           </div>
         </div>
       )}
-      <header className={styles["account-header"]}>
-        <div className={styles["account-header-inner"]}>
-          <Link
-            to="/"
-            className={styles["brand-block"]}
-            aria-label="Go to the Webshelf homepage"
-          >
-            <span className={styles["brand-name"]}>WEBSHELF</span>
-            <span className={styles["brand-divider"]} />
-            <img src={webshelfLogo} alt="Webshelf logo" />
-          </Link>
-
-          <div className={styles["header-right"]}>
-            <button
-              type="button"
-              className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]} ${styles["header-home-btn"]}`}
-              onClick={() => navigate("/")}
-            >
-              Return Home
-            </button>
-            <button
-              type="button"
-              className={styles["avatar-btn"]}
-              onClick={() => navigate("/account")}
-              aria-label="Go to account settings"
-            >
-              <span aria-hidden="true">👤</span>
-            </button>
-          </div>
-        </div>
-      </header>
 
       <main className={styles["account-main"]}>
         <section className={styles["tabs-card"]}>
@@ -1328,14 +1341,7 @@ function CartPage({ onBooksReload }) {
         <section className={styles["loan-list"]}>{renderActiveTab()}</section>
       </main>
 
-      <footer className={styles["account-footer"]}>
-        <div className={styles["account-footer-inner"]}>
-          <span>2025 WEBSHELF</span>
-          <div className={styles["account-footer-links"]}>
-            <a href="#about">About</a>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter ref={footerRef} />
     </div>
   );
 }

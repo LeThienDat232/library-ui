@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import "../App.css";
-import webshelfLogo from "../assets/webshelf-logo.png";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import SiteHeader from "../components/SiteHeader.jsx";
+import SiteFooter from "../components/SiteFooter.jsx";
 
 const FALLBACK_COVER =
   "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=400&q=60";
@@ -71,13 +71,6 @@ function HomePage({
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [footerHeight, setFooterHeight] = useState(0);
   const footerRef = useRef(null);
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const openExternal = useCallback((targetUrl) => {
-    if (!targetUrl || typeof window === "undefined") {
-      return;
-    }
-    window.open(targetUrl, "_blank", "noopener,noreferrer");
-  }, []);
 
   const handleBookSelection = (book) => {
     if (onBookSelect) {
@@ -251,57 +244,7 @@ function HomePage({
 
   return (
     <div className="home-app" style={homeAppStyle}>
-      {/* HEADER */}
-      <header className="home-header">
-        <Link
-          to="/"
-          className="home-brand"
-          aria-label="Go to the Webshelf homepage"
-        >
-          <span className="home-brand-name">WEBSHELF</span>
-          <span className="brand-divider" />
-          <img src={webshelfLogo} alt="Webshelf logo" />
-        </Link>
-
-        <nav className="home-nav">
-          {isLoggedIn && (
-            <button
-              type="button"
-              className="home-cart-btn"
-              onClick={() => navigate("/cart")}
-            >
-              Cart
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              type="button"
-              className="home-admin-btn"
-              onClick={() => navigate("/admin")}
-            >
-              Admin
-            </button>
-          )}
-          {isLoggedIn ? (
-            <button
-              type="button"
-              className="home-avatar-btn"
-              onClick={() => navigate("/account")}
-              aria-label="Open account settings"
-            >
-              <span>👤</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="home-login-btn"
-              onClick={() => navigate("/login")}
-            >
-              Log in
-            </button>
-          )}
-        </nav>
-      </header>
+      <SiteHeader isLoggedIn={isLoggedIn} isAdmin={isAdmin} mode="home" />
 
       {/* HERO */}
       <section className="home-hero">
@@ -542,51 +485,7 @@ function HomePage({
         </div>
       </section>
 
-      <footer className="home-footer" ref={footerRef}>
-        <div className="home-footer-inner">
-          <div className="home-footer-branding">
-            <p className="home-footer-brand">WEBSHELF</p>
-            <p className="home-footer-copy">
-              The modern way to browse, borrow, and fall in love with reading again.
-            </p>
-          </div>
-          <p className="home-footer-note">
-            © {currentYear} Webshelf Library. Built for PTUDWeb demos.
-          </p>
-          <div className="home-footer-contact">
-            <button
-              type="button"
-              className="home-footer-contact-link"
-              onClick={() => openExternal("tel:+84123456789")}
-            >
-              <span className="contact-label">Phone:</span>
-              <span>+84 123 456 789</span>
-            </button>
-            <button
-              type="button"
-              className="home-footer-contact-link"
-              onClick={() =>
-                openExternal(
-                  "https://mail.google.com/mail/?view=cm&fs=1&to=webshelf@gmail.com",
-                )
-              }
-            >
-              <span className="contact-label">Email:</span>
-              <span>webshelf@gmail.com</span>
-            </button>
-            <button
-              type="button"
-              className="home-footer-contact-link"
-              onClick={() =>
-                openExternal("https://maps.app.goo.gl/njG1LXAnWpqW6aQK8")
-              }
-            >
-              <span className="contact-label">Address:</span>
-              <span>Trường đại học Công Nghệ Thông Tin</span>
-            </button>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter ref={footerRef} />
 
       {showScrollTop && (
         <button
