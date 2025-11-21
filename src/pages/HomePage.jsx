@@ -264,13 +264,15 @@ function HomePage({
         </Link>
 
         <nav className="home-nav">
-          <button
-            type="button"
-            className="home-cart-btn"
-            onClick={() => navigate(isLoggedIn ? "/cart" : "/login")}
-          >
-            Cart
-          </button>
+          {isLoggedIn && (
+            <button
+              type="button"
+              className="home-cart-btn"
+              onClick={() => navigate("/cart")}
+            >
+              Cart
+            </button>
+          )}
           {isAdmin && (
             <button
               type="button"
