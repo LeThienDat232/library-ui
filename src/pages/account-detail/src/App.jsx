@@ -191,12 +191,24 @@ function normalizeLoan(rawLoan, index = 0) {
     rawLoan.dueAt ||
     null;
   const returnedOn =
+    rawLoan.return_at ||
+    rawLoan.returnAt ||
+    rawLoan.returned_at ||
+    rawLoan.returnedAt ||
+    rawLoan.return_date ||
+    rawLoan.returnDate ||
+    rawLoan.returned_date ||
+    rawLoan.returnedDate ||
     rawLoan.returned_on ||
     rawLoan.returnedOn ||
     rawLoan.closed_at ||
     rawLoan.closedAt ||
     rawLoan.completed_at ||
     rawLoan.completedAt ||
+    rawLoan.approved_at ||
+    rawLoan.approvedAt ||
+    rawLoan.updated_at ||
+    rawLoan.updatedAt ||
     null;
   const qrRef =
     rawLoan.ticket_token || rawLoan.qr_ref || rawLoan.qrRef || rawLoan.token;
@@ -1149,7 +1161,7 @@ function CartPage({ onBooksReload }) {
       <>
         {filteredHistory.map((order) => {
           const meta = getStatusMeta(order.status);
-          const returnedDate = formatDate(order.returnedOn || order.dueDate);
+          const returnedDate = formatDate(order.returnedOn);
           const stateClass = styles[`loan-card-${meta.key}`] || "";
           const statusClass =
             styles[`status-${meta.key}`] || styles["status-default"];

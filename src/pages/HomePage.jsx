@@ -414,48 +414,52 @@ function HomePage({
         <div className="home-section-inner home-main-grid">
           {/* SIDEBAR */}
           <aside className="home-sidebar">
-            <div className="home-sidebar-block">
+            <div className="home-sidebar-block home-sidebar-block--genres">
               <h3>Book by Genre</h3>
-              <button
-                type="button"
-                className={`home-nav-pill ${activeGenre === "All" ? "home-nav-pill-active" : ""
-                  }`}
-                aria-pressed={activeGenre === "All"}
-                onClick={() => setActiveGenre("All")}
-              >
-                All Genres
-              </button>
-              {genreOptions.map((genre) => (
+              <div className="home-sidebar-scroll">
                 <button
                   type="button"
-                  key={genre.name}
-                  className={`home-nav-pill ${activeGenre === genre.name ? "home-nav-pill-active" : ""
+                  className={`home-nav-pill ${activeGenre === "All" ? "home-nav-pill-active" : ""
                     }`}
-                  aria-pressed={activeGenre === genre.name}
-                  onClick={() => setActiveGenre(genre.name)}
+                  aria-pressed={activeGenre === "All"}
+                  onClick={() => setActiveGenre("All")}
                 >
-                  {genre.name}
-                  <span className="home-pill-count">{genre.count}</span>
+                  All Genres
                 </button>
-              ))}
+                {genreOptions.map((genre) => (
+                  <button
+                    type="button"
+                    key={genre.name}
+                    className={`home-nav-pill ${activeGenre === genre.name ? "home-nav-pill-active" : ""
+                      }`}
+                    aria-pressed={activeGenre === genre.name}
+                    onClick={() => setActiveGenre(genre.name)}
+                  >
+                    {genre.name}
+                    <span className="home-pill-count">{genre.count}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="home-sidebar-block">
+            <div className="home-sidebar-block home-sidebar-block--recommendations">
               <h3>Recommendations</h3>
-              {RECOMMENDATION_OPTIONS.map((option) => (
-                <button
-                  type="button"
-                  key={option.id}
-                  className={`home-sidebar-link ${recommendationFilter === option.id
-                      ? "home-sidebar-link-active"
-                      : ""
-                    }`}
-                  aria-pressed={recommendationFilter === option.id}
-                  onClick={() => setRecommendationFilter(option.id)}
-                >
-                  {option.label}
-                </button>
-              ))}
+              <div className="home-sidebar-scroll">
+                {RECOMMENDATION_OPTIONS.map((option) => (
+                  <button
+                    type="button"
+                    key={option.id}
+                    className={`home-sidebar-link ${recommendationFilter === option.id
+                        ? "home-sidebar-link-active"
+                        : ""
+                      }`}
+                    aria-pressed={recommendationFilter === option.id}
+                    onClick={() => setRecommendationFilter(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </aside>
 
@@ -487,52 +491,52 @@ function HomePage({
               const starElements = renderRatingStars(ratingKey, ratingValue);
               return (
                 <article
-                className="home-book-card"
-                key={book.book_id ?? book.title}
-              >
-                <button
-                  type="button"
-                  className="home-cover-btn"
-                  onClick={() => handleBookSelection(book)}
-                  aria-label={`View details for ${book.title}`}
+                  className="home-book-card"
+                  key={book.book_id ?? book.title}
                 >
-                  <div className="home-cover">
-                    <img
-                      src={book.cover_url || FALLBACK_COVER}
-                      alt={book.title}
-                    />
-                  </div>
-                </button>
-                <div className="home-book-info">
-                  <h3 className="home-book-title">{book.title}</h3>
-                  <p className="home-book-author">By {book.author}</p>
-                  <div className="home-book-votes">
-                    <div
-                      className="home-stars home-stars-small"
-                      aria-label={`Average rating ${ratingLabel} out of 5`}
-                    >
-                      {starElements}
-                    </div>
-                    <span className="home-rating-score">{ratingLabel}</span>
-                    <span>
-                      {book.review_count ?? 0} review
-                      {(book.review_count ?? 0) === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  <p className="home-book-desc">
-                    {book.genres?.map((genre) => genre.name).join(", ") ||
-                      "Discover this new arrival from our catalog."}
-                  </p>
                   <button
                     type="button"
-                    className="home-ghost-btn"
+                    className="home-cover-btn"
                     onClick={() => handleBookSelection(book)}
+                    aria-label={`View details for ${book.title}`}
                   >
-                    Borrow Now
+                    <div className="home-cover">
+                      <img
+                        src={book.cover_url || FALLBACK_COVER}
+                        alt={book.title}
+                      />
+                    </div>
                   </button>
-                </div>
-              </article>
-            );
+                  <div className="home-book-info">
+                    <h3 className="home-book-title">{book.title}</h3>
+                    <p className="home-book-author">By {book.author}</p>
+                    <div className="home-book-votes">
+                      <div
+                        className="home-stars home-stars-small"
+                        aria-label={`Average rating ${ratingLabel} out of 5`}
+                      >
+                        {starElements}
+                      </div>
+                      <span className="home-rating-score">{ratingLabel}</span>
+                      <span>
+                        {book.review_count ?? 0} review
+                        {(book.review_count ?? 0) === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <p className="home-book-desc">
+                      {book.genres?.map((genre) => genre.name).join(", ") ||
+                        "Discover this new arrival from our catalog."}
+                    </p>
+                    <button
+                      type="button"
+                      className="home-ghost-btn"
+                      onClick={() => handleBookSelection(book)}
+                    >
+                      Borrow Now
+                    </button>
+                  </div>
+                </article>
+              );
             })}
           </div>
         </div>

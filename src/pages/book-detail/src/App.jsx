@@ -31,7 +31,13 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const displayBook = book ?? fallbackBook;
   const genres = displayBook.genres ?? [];
   const primaryGenre = genres[0]?.name;
-  const ratingValue = Number(displayBook.avg_rating ?? 0);
+  const ratingSource =
+    displayBook.avg_rating ??
+    displayBook.average_rating ??
+    displayBook.averageRating ??
+    displayBook.rating ??
+    0;
+  const ratingValue = clampRatingValue(Number(ratingSource) || 0);
   const reviewCount = displayBook.review_count ?? 0;
   const availableCount = displayBook.inventory?.available ?? 0;
   const totalCount = displayBook.inventory?.total ?? 0;
@@ -254,9 +260,6 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                   <div className={styles['book-main']}>
                     <div className={styles['book-heading']}>
                       <h1 className={styles['book-title']}>{displayBook.title}</h1>
-                      <button className={styles['icon-squared']}>
-                        <span>＋</span>
-                      </button>
                     </div>
 
                     <div className={styles['book-meta']}>
@@ -266,13 +269,7 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                     </div>
 
                     <div className={styles['book-stats']}>
-                      <div className={styles.stars}>
-                        <span>★</span>
-                        <span>★</span>
-                        <span>★</span>
-                        <span>★</span>
-                        <span className={styles['star-muted']}>★</span>
-                      </div>
+                      <RatingStars value={ratingValue} />
                       <span className={styles['stat-item']}>
                         {ratingValue ? `${ratingValue.toFixed(1)} avg rating` : "Not yet rated"}
                       </span>
@@ -351,7 +348,6 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
             <section className={styles['ratings-card']}>
               <div className={styles['ratings-header']}>
                 <h2>Ratings &amp; Reviews</h2>
-                <button className={styles['secondary-btn']}>Write A Review</button>
               </div>
 
               <form
@@ -523,13 +519,7 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
 
               <div className={styles['community-main']}>
                 <div className={styles['community-score']}>
-                  <div className={styles.stars}>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span>★</span>
-                    <span className={styles['star-muted']}>★</span>
-                  </div>
+                  <RatingStars value={ratingValue} />
                   <p className={styles['score-number']}>
                     {ratingValue ? ratingValue.toFixed(1) : "0.0"} <span>/ 5</span>
                   </p>
@@ -564,6 +554,30 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
 
 /* Small dumb presentational components */
 
+function RatingStars({ value = 0, size = "default", className }) {
+  const safeValue = clampRatingValue(Number(value) || 0);
+  const filledCount = Math.round(safeValue);
+  const classNames = [styles.stars];
+  if (size && size !== "default" && styles[size]) {
+    classNames.push(styles[size]);
+  }
+  if (className) {
+    classNames.push(className);
+  }
+  return (
+    <div className={classNames.join(" ")}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <span
+          key={index}
+          className={index < filledCount ? undefined : styles['star-muted']}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function DetailRow({ label, value }) {
   return (
     <div className={styles['detail-row']}>
@@ -582,16 +596,7 @@ function ReviewItem({ title, date, rating, text }) {
           <h3 className={styles['review-title']}>{title}</h3>
           <span className={styles['review-date']}>{date}</span>
         </div>
-        <div className={`${styles.stars} ${styles.small}`}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <span
-              key={i}
-              className={i + 1 <= rating ? undefined : styles['star-muted']}
-            >
-              ★
-            </span>
-          ))}
-        </div>
+        <RatingStars value={rating} size="small" />
         {text && <p className={styles['review-text']}>{text}</p>}
       </div>
     </article>
@@ -599,7 +604,19 @@ function ReviewItem({ title, date, rating, text }) {
 }
 
 function SuggestionItem({ book, onSelect }) {
-  const { title, author, review_count, cover_url, cover } = book;
+  const {
+    title,
+    author,
+    review_count,
+    cover_url,
+    cover,
+    avg_rating,
+    average_rating,
+    averageRating,
+    rating,
+  } = book;
+  const suggestionRating =
+    avg_rating ?? average_rating ?? averageRating ?? rating ?? 0;
   return (
     <button type="button" className={styles['suggestion-item']} onClick={onSelect}>
       <div className={styles['suggestion-cover']}>
@@ -609,13 +626,7 @@ function SuggestionItem({ book, onSelect }) {
         <h3 className={styles['suggestion-title']}>{title}</h3>
         <p className={styles['suggestion-author']}>By {author}</p>
         <div className={styles['suggestion-meta']}>
-          <div className={`${styles.stars} ${styles.tiny}`}>
-            <span>★</span>
-            <span>★</span>
-            <span>★</span>
-            <span>★</span>
-            <span className={styles['star-muted']}>★</span>
-          </div>
+          <RatingStars value={suggestionRating} size="tiny" />
           <span className={styles['suggestion-votes']}>
             {review_count ?? 0} review{(review_count ?? 0) === 1 ? "" : "s"}
           </span>
@@ -644,6 +655,19 @@ function ScoreRow({ label, percent }) {
 }
 
 export default BookDetailPage;
+
+function clampRatingValue(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  if (value < 0) {
+    return 0;
+  }
+  if (value > 5) {
+    return 5;
+  }
+  return value;
+}
 
 function extractLoanItems(rawLoan) {
   if (!rawLoan) return [];

@@ -367,9 +367,13 @@ export async function fetchBookReviews(bookId, options = {}) {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+  const query = {
+    limit: options.limit || 50,
+    page: options.page || 1,
+  };
   try {
     const response = await fetch(
-      buildUrl("/reviews", { book_id: numericBookId, limit: options.limit || 50 }),
+      buildUrl(`/reviews/book/${numericBookId}`, query),
       {
         method: "GET",
         headers,

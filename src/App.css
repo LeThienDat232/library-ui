@@ -400,32 +400,64 @@
 }
 
 .home-sidebar {
+  --home-sidebar-max: calc(
+    100vh - var(--home-header-height) - var(--home-footer-effective, var(--home-footer-offset)) - 32px
+  );
   display: flex;
   flex-direction: column;
   gap: 28px;
   position: sticky;
   top: calc(var(--home-header-height) + 24px);
   align-self: flex-start;
-  max-height: calc(
-    100vh - var(--home-header-height) - var(--home-footer-effective, var(--home-footer-offset)) - 32px
-  );
+  max-height: var(--home-sidebar-max);
+  height: var(--home-sidebar-max);
+  overflow: hidden;
+  padding-right: 4px;
+  min-height: 0;
+}
+
+.home-sidebar-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.home-sidebar-block--genres {
+  flex: 5 1 0;
+}
+
+.home-sidebar-block--recommendations {
+  flex: 4 1 0;
+}
+
+.home-sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 8px;
+  padding-right: 6px;
+  gap: 6px;
   scrollbar-width: thin;
 }
 
-.home-sidebar::-webkit-scrollbar {
+.home-sidebar-scroll::-webkit-scrollbar {
   width: 6px;
 }
 
-.home-sidebar::-webkit-scrollbar-thumb {
+.home-sidebar-scroll::-webkit-scrollbar-thumb {
   background: rgba(15, 23, 42, 0.2);
   border-radius: 999px;
 }
 
+.home-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .home-sidebar-block h3 {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -443,7 +475,6 @@
   border-radius: 18px;
   border: none;
   padding: 10px 14px;
-  margin-bottom: 6px;
   background: transparent;
   cursor: pointer;
   color: #111827;
@@ -721,12 +752,25 @@
     position: static;
     top: auto;
     max-height: none;
+    height: auto;
     overflow: visible;
     padding-right: 0;
   }
 
   .home-sidebar-block {
     flex: 1 1 200px;
+    min-height: auto;
+  }
+
+  .home-sidebar-block--genres,
+  .home-sidebar-block--recommendations {
+    flex: 1 1 200px;
+  }
+
+  .home-sidebar-scroll {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 }
 

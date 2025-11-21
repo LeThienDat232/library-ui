@@ -166,19 +166,6 @@
   margin: 0;
 }
 
-.icon-squared {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: none;
-  background: #f5f6fb;
-  color: #444;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
 .book-meta,
 .book-stats {
   display: flex;
@@ -348,17 +335,6 @@
 .ratings-header h2 {
   margin: 0;
   font-size: 18px;
-}
-
-.secondary-btn {
-  border-radius: 999px;
-  padding: 8px 18px;
-  border: none;
-  cursor: pointer;
-  background: #ff8a00;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 /* rate box */
