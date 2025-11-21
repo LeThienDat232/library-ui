@@ -94,12 +94,27 @@
   color: #94a3b8;
 }
 
-.listActions button {
-  border: none;
-  background: transparent;
+.listActions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.listBtn {
+  border-radius: 999px;
+  border: 1px solid #cbd5f5;
+  background: #fff;
   color: #1f7bff;
   cursor: pointer;
   font-weight: 600;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.listBtnDanger {
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 .formPane {

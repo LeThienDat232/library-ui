@@ -315,7 +315,16 @@ function AdminCirculation() {
         }
       } catch (error) {
         if (!handleAuthError(error)) {
-          setActionState({ type: "error", message: error.message });
+          let message = error.message;
+          if (
+            action === "renew" &&
+            typeof message === "string" &&
+            /not borrowed/i.test(message)
+          ) {
+            message =
+              "This loan must be in Borrowed status before it can be renewed. Run the overdue job or confirm the loan first.";
+          }
+          setActionState({ type: "error", message });
         }
       } finally {
         setActionLoading(false);

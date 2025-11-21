@@ -23,6 +23,13 @@ const invoiceTypeOptions = [
   { value: "lost", label: "Lost" },
 ];
 
+const paymentProviderOptions = [
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Card" },
+  { value: "bank_transfer", label: "Bank transfer" },
+  { value: "online", label: "Online portal" },
+];
+
 function formatCurrency(amount, currency = "VND") {
   if (amount === undefined || amount === null) return "—";
   try {
@@ -52,6 +59,8 @@ function AdminInvoices() {
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [refreshKey, setRefreshKey] = useState(0);
   const [jobRunning, setJobRunning] = useState(false);
+  const [markPaidDialog, setMarkPaidDialog] = useState(null);
+  const [dialogSubmitting, setDialogSubmitting] = useState(false);
   const notifyAuthError = useCallback(
     (message) => setFeedback({ type: "error", message }),
     []
@@ -101,27 +110,49 @@ function AdminInvoices() {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleMarkPaid = async (invoice) => {
-    const providerInput = window.prompt("Payment provider", "cash");
-    if (providerInput === null) return;
-    const referenceInput = window.prompt(
-      "Receipt / transaction reference (optional)",
-      ""
-    );
-    const payload = {
-      provider: providerInput.trim() || "cash",
-    };
-    if (referenceInput && referenceInput.trim()) {
-      payload.ref = referenceInput.trim();
-    }
+  const handleMarkPaidClick = (invoice) => {
+    setMarkPaidDialog({
+      invoice,
+      provider: invoice?.payment_provider || "cash",
+      reference: invoice?.payment_reference || "",
+    });
+  };
+
+  const closeMarkPaidDialog = () => {
+    setMarkPaidDialog(null);
+    setDialogSubmitting(false);
+  };
+
+  const updateDialogField = (field, value) => {
+    setMarkPaidDialog((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const handleMarkPaidSubmit = async () => {
+    if (!markPaidDialog?.invoice) return;
     try {
-      await adminMarkInvoicePaid(invoice.invoice_id, payload, accessToken);
+      setDialogSubmitting(true);
+      const payload = {
+        provider: (markPaidDialog.provider || "cash").trim(),
+      };
+      const refValue = markPaidDialog.reference?.trim();
+      if (refValue) {
+        payload.ref = refValue;
+        payload.reference = refValue;
+      }
+      await adminMarkInvoicePaid(
+        markPaidDialog.invoice.invoice_id,
+        payload,
+        accessToken
+      );
       setFeedback({ type: "success", message: "Invoice marked as paid." });
+      closeMarkPaidDialog();
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       if (!handleAuthError(error)) {
         setFeedback({ type: "error", message: error.message });
       }
+    } finally {
+      setDialogSubmitting(false);
     }
   };
 
@@ -289,9 +320,8 @@ function AdminInvoices() {
                   </td>
                   <td>
                     <span
-                      className={`${styles.statusPill} ${
-                        styles[`status-${statusKey}`] || ""
-                      }`}
+                      className={`${styles.statusPill} ${styles[`status-${statusKey}`] || ""
+                        }`}
                     >
                       {statusValue ? statusValue.replace(/_/g, " ") : "—"}
                     </span>
@@ -311,7 +341,7 @@ function AdminInvoices() {
                       <button
                         type="button"
                         disabled={invoice.status === "paid" || loading}
-                        onClick={() => handleMarkPaid(invoice)}
+                        onClick={() => handleMarkPaidClick(invoice)}
                       >
                         Mark paid
                       </button>
@@ -345,6 +375,86 @@ function AdminInvoices() {
           </tbody>
         </table>
       </div>
+
+      {markPaidDialog && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+          <div className={styles.modalPanel}>
+            <header className={styles.modalHeader}>
+              <div>
+                <p className={styles.modalLabel}>
+                  Invoice #{markPaidDialog.invoice.invoice_id}
+                </p>
+                <h3>Record payment</h3>
+              </div>
+              <button
+                type="button"
+                className={styles.modalCloseBtn}
+                aria-label="Close"
+                onClick={closeMarkPaidDialog}
+                disabled={dialogSubmitting}
+              >
+                ×
+              </button>
+            </header>
+            <p className={styles.modalSubtitle}>
+              {markPaidDialog.invoice.user?.email ||
+                `User #${markPaidDialog.invoice.user_id}`} owes
+              {" "}
+              {formatCurrency(
+                markPaidDialog.invoice.amount_vnd ?? markPaidDialog.invoice.amount,
+                markPaidDialog.invoice.currency ?? "VND"
+              )}
+              {markPaidDialog.invoice.loan_id
+                ? ` for loan #${markPaidDialog.invoice.loan_id}.`
+                : "."}
+            </p>
+            <div className={styles.modalGrid}>
+              <label>
+                <span>Payment method</span>
+                <select
+                  value={markPaidDialog.provider}
+                  onChange={(event) => updateDialogField("provider", event.target.value)}
+                  disabled={dialogSubmitting}
+                >
+                  {paymentProviderOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Reference (optional)</span>
+                <input
+                  type="text"
+                  placeholder="Receipt # / transaction id"
+                  value={markPaidDialog.reference}
+                  onChange={(event) => updateDialogField("reference", event.target.value)}
+                  disabled={dialogSubmitting}
+                />
+              </label>
+            </div>
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalSecondaryBtn}
+                onClick={closeMarkPaidDialog}
+                disabled={dialogSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.modalPrimaryBtn}
+                onClick={handleMarkPaidSubmit}
+                disabled={dialogSubmitting || !markPaidDialog.provider}
+              >
+                {dialogSubmitting ? "Saving…" : "Confirm payment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

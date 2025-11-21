@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 import webshelfLogo from "../assets/webshelf-logo.png";
@@ -15,6 +15,45 @@ const RECOMMENDATION_OPTIONS = [
 const INITIAL_VISIBLE = 20;
 const LOAD_MORE_STEP = 10;
 
+const clampRatingValue = (value) => {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 5) return 5;
+  return value;
+};
+
+const getBookRatingValue = (book) => {
+  if (!book || typeof book !== "object") {
+    return 0;
+  }
+  const candidates = [
+    book.avg_rating,
+    book.average_rating,
+    book.averageRating,
+    book.rating,
+  ];
+  for (const candidate of candidates) {
+    const numeric = Number(candidate);
+    if (Number.isFinite(numeric)) {
+      return clampRatingValue(numeric);
+    }
+  }
+  return 0;
+};
+
+const renderRatingStars = (id, ratingValue) => {
+  const safeRating = clampRatingValue(ratingValue);
+  const filledStars = Math.round(safeRating);
+  return Array.from({ length: 5 }, (_, idx) => (
+    <span
+      key={`${id}-star-${idx}`}
+      className={idx < filledStars ? "" : "home-star-muted"}
+    >
+      ★
+    </span>
+  ));
+};
+
 function HomePage({
   isLoggedIn,
   isAdmin = false,
@@ -30,6 +69,15 @@ function HomePage({
   const [recommendationFilter, setRecommendationFilter] = useState("popular");
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const footerRef = useRef(null);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const openExternal = useCallback((targetUrl) => {
+    if (!targetUrl || typeof window === "undefined") {
+      return;
+    }
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+  }, []);
 
   const handleBookSelection = (book) => {
     if (onBookSelect) {
@@ -121,8 +169,26 @@ function HomePage({
   }, [sortedBooks.length]);
 
   useEffect(() => {
+    let lastScroll = 0;
+    let ticking = false;
+
     const handleScroll = () => {
+      const now = Date.now();
+
+      // Throttle to run at most once every 150ms
+      if (now - lastScroll < 150) {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(() => {
+            ticking = false;
+          });
+        }
+        return;
+      }
+
+      lastScroll = now;
       setShowScrollTop(window.scrollY > 400);
+
       if (
         window.innerHeight + window.scrollY >=
         document.body.offsetHeight - 200
@@ -135,9 +201,43 @@ function HomePage({
         });
       }
     };
-    window.addEventListener("scroll", handleScroll);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [sortedBooks.length]);
+
+  useEffect(() => {
+    const node = footerRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const updateHeight = () => {
+      setFooterHeight(node.offsetHeight || 0);
+    };
+
+    updateHeight();
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(updateHeight);
+      resizeObserver.observe(node);
+    }
+
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      window.removeEventListener("resize", updateHeight);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, []);
+
+  const reservedFooterOffset = Math.max(footerHeight + 20, 280);
+  const homeAppStyle = useMemo(
+    () => ({ "--home-footer-effective": `${reservedFooterOffset}px` }),
+    [reservedFooterOffset],
+  );
 
   const featuredBooks = sortedBooks.slice(0, visibleCount);
   const descriptorParts = [];
@@ -150,59 +250,60 @@ function HomePage({
   const resultsSubtitle = descriptorParts.join(" ");
 
   return (
-    <div className="home-app">
-      {/* HERO + HEADER */}
+    <div className="home-app" style={homeAppStyle}>
+      {/* HEADER */}
+      <header className="home-header">
+        <Link
+          to="/"
+          className="home-brand"
+          aria-label="Go to the Webshelf homepage"
+        >
+          <span className="home-brand-name">WEBSHELF</span>
+          <span className="brand-divider" />
+          <img src={webshelfLogo} alt="Webshelf logo" />
+        </Link>
+
+        <nav className="home-nav">
+          <button
+            type="button"
+            className="home-cart-btn"
+            onClick={() => navigate(isLoggedIn ? "/cart" : "/login")}
+          >
+            Cart
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="home-admin-btn"
+              onClick={() => navigate("/admin")}
+            >
+              Admin
+            </button>
+          )}
+          {isLoggedIn ? (
+            <button
+              type="button"
+              className="home-avatar-btn"
+              onClick={() => navigate("/account")}
+              aria-label="Open account settings"
+            >
+              <span>👤</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="home-login-btn"
+              onClick={() => navigate("/login")}
+            >
+              Log in
+            </button>
+          )}
+        </nav>
+      </header>
+
+      {/* HERO */}
       <section className="home-hero">
         <div className="home-hero-inner">
-          <header className="home-header">
-            <Link
-              to="/"
-              className="home-brand"
-              aria-label="Go to the Webshelf homepage"
-            >
-              <span className="home-brand-name">WEBSHELF</span>
-              <span className="brand-divider" />
-              <img src={webshelfLogo} alt="Webshelf logo" />
-            </Link>
-
-            <nav className="home-nav">
-              <button
-                type="button"
-                className="home-cart-btn"
-                onClick={() => navigate(isLoggedIn ? "/cart" : "/login")}
-              >
-                Cart
-              </button>
-              {isAdmin && (
-                <button
-                  type="button"
-                  className="home-admin-btn"
-                  onClick={() => navigate("/admin")}
-                >
-                  Admin
-                </button>
-              )}
-              {isLoggedIn ? (
-                <button
-                  type="button"
-                  className="home-avatar-btn"
-                  onClick={() => navigate("/account")}
-                  aria-label="Open account settings"
-                >
-                  <span>👤</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="home-login-btn"
-                  onClick={() => navigate("/login")}
-                >
-                  Log in
-                </button>
-              )}
-            </nav>
-          </header>
-
           <div className="home-hero-body">
             <div className="home-hero-text">
               <h1>MEET YOUR NEXT FAVORITE BOOK.</h1>
@@ -249,8 +350,16 @@ function HomePage({
           <h2 className="home-section-title">Trending</h2>
           <div className="home-trending-marquee">
             <div className="home-trending-track">
-              {[...trendingBooks, ...trendingBooks].map((book, idx) => (
-                <article
+              {[...trendingBooks, ...trendingBooks].map((book, idx) => {
+                const ratingValue = getBookRatingValue(book);
+                const ratingLabel = clampRatingValue(ratingValue).toFixed(1);
+                const ratingKey =
+                  book.book_id ??
+                  book.id ??
+                  `${book.title ?? "book"}-trend-${idx}`;
+                const starElements = renderRatingStars(ratingKey, ratingValue);
+                return (
+                  <article
                   className="home-trending-card"
                   key={`${book.book_id ?? book.title}-${idx}`}
                   role="button"
@@ -273,13 +382,13 @@ function HomePage({
                     <h3 className="home-book-title">{book.title}</h3>
                     <p className="home-trending-author">By {book.author}</p>
                     <div className="home-book-votes">
-                      <div className="home-stars home-stars-small">
-                        <span>★</span>
-                        <span>★</span>
-                        <span>★</span>
-                        <span>★</span>
-                        <span className="home-star-muted">★</span>
+                      <div
+                        className="home-stars home-stars-small"
+                        aria-label={`Average rating ${ratingLabel} out of 5`}
+                      >
+                        {starElements}
                       </div>
+                      <span className="home-rating-score">{ratingLabel}</span>
                       <span>
                         {book.review_count ?? 0} review
                         {(book.review_count ?? 0) === 1 ? "" : "s"}
@@ -291,14 +400,15 @@ function HomePage({
                     </p>
                   </div>
                 </article>
-              ))}
+              );
+              })}
             </div>
           </div>
         </div>
       </section>
 
       {/* MAIN CONTENT */}
-      <section className="home-main">
+      <section className="home-main" id="home-catalog">
         <div className="home-section-inner home-main-grid">
           {/* SIDEBAR */}
           <aside className="home-sidebar">
@@ -306,9 +416,8 @@ function HomePage({
               <h3>Book by Genre</h3>
               <button
                 type="button"
-                className={`home-nav-pill ${
-                  activeGenre === "All" ? "home-nav-pill-active" : ""
-                }`}
+                className={`home-nav-pill ${activeGenre === "All" ? "home-nav-pill-active" : ""
+                  }`}
                 aria-pressed={activeGenre === "All"}
                 onClick={() => setActiveGenre("All")}
               >
@@ -318,9 +427,8 @@ function HomePage({
                 <button
                   type="button"
                   key={genre.name}
-                  className={`home-nav-pill ${
-                    activeGenre === genre.name ? "home-nav-pill-active" : ""
-                  }`}
+                  className={`home-nav-pill ${activeGenre === genre.name ? "home-nav-pill-active" : ""
+                    }`}
                   aria-pressed={activeGenre === genre.name}
                   onClick={() => setActiveGenre(genre.name)}
                 >
@@ -336,11 +444,10 @@ function HomePage({
                 <button
                   type="button"
                   key={option.id}
-                  className={`home-sidebar-link ${
-                    recommendationFilter === option.id
+                  className={`home-sidebar-link ${recommendationFilter === option.id
                       ? "home-sidebar-link-active"
                       : ""
-                  }`}
+                    }`}
                   aria-pressed={recommendationFilter === option.id}
                   onClick={() => setRecommendationFilter(option.id)}
                 >
@@ -368,25 +475,43 @@ function HomePage({
             {!loading && !errorMessage && featuredBooks.length === 0 && (
               <p className="home-error-copy">No books available right now.</p>
             )}
-            {featuredBooks.map((book) => (
-              <article
+            {featuredBooks.map((book, index) => {
+              const ratingValue = getBookRatingValue(book);
+              const ratingLabel = clampRatingValue(ratingValue).toFixed(1);
+              const ratingKey =
+                book.book_id ??
+                book.id ??
+                `${book.title ?? "book"}-list-${index}`;
+              const starElements = renderRatingStars(ratingKey, ratingValue);
+              return (
+                <article
                 className="home-book-card"
                 key={book.book_id ?? book.title}
               >
-                <div className="home-cover">
-                  <img src={book.cover_url || FALLBACK_COVER} alt={book.title} />
-                </div>
+                <button
+                  type="button"
+                  className="home-cover-btn"
+                  onClick={() => handleBookSelection(book)}
+                  aria-label={`View details for ${book.title}`}
+                >
+                  <div className="home-cover">
+                    <img
+                      src={book.cover_url || FALLBACK_COVER}
+                      alt={book.title}
+                    />
+                  </div>
+                </button>
                 <div className="home-book-info">
                   <h3 className="home-book-title">{book.title}</h3>
                   <p className="home-book-author">By {book.author}</p>
                   <div className="home-book-votes">
-                    <div className="home-stars home-stars-small">
-                      <span>★</span>
-                      <span>★</span>
-                      <span>★</span>
-                      <span>★</span>
-                      <span className="home-star-muted">★</span>
+                    <div
+                      className="home-stars home-stars-small"
+                      aria-label={`Average rating ${ratingLabel} out of 5`}
+                    >
+                      {starElements}
                     </div>
+                    <span className="home-rating-score">{ratingLabel}</span>
                     <span>
                       {book.review_count ?? 0} review
                       {(book.review_count ?? 0) === 1 ? "" : "s"}
@@ -405,10 +530,57 @@ function HomePage({
                   </button>
                 </div>
               </article>
-            ))}
+            );
+            })}
           </div>
         </div>
       </section>
+
+      <footer className="home-footer" ref={footerRef}>
+        <div className="home-footer-inner">
+          <div className="home-footer-branding">
+            <p className="home-footer-brand">WEBSHELF</p>
+            <p className="home-footer-copy">
+              The modern way to browse, borrow, and fall in love with reading again.
+            </p>
+          </div>
+          <p className="home-footer-note">
+            © {currentYear} Webshelf Library. Built for PTUDWeb demos.
+          </p>
+          <div className="home-footer-contact">
+            <button
+              type="button"
+              className="home-footer-contact-link"
+              onClick={() => openExternal("tel:+84123456789")}
+            >
+              <span className="contact-label">Phone:</span>
+              <span>+84 123 456 789</span>
+            </button>
+            <button
+              type="button"
+              className="home-footer-contact-link"
+              onClick={() =>
+                openExternal(
+                  "https://mail.google.com/mail/?view=cm&fs=1&to=webshelf@gmail.com",
+                )
+              }
+            >
+              <span className="contact-label">Email:</span>
+              <span>webshelf@gmail.com</span>
+            </button>
+            <button
+              type="button"
+              className="home-footer-contact-link"
+              onClick={() =>
+                openExternal("https://maps.app.goo.gl/njG1LXAnWpqW6aQK8")
+              }
+            >
+              <span className="contact-label">Address:</span>
+              <span>Trường đại học Công Nghệ Thông Tin</span>
+            </button>
+          </div>
+        </div>
+      </footer>
 
       {showScrollTop && (
         <button

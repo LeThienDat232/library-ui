@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./BookDetail.module.css";
 import {
   addBookToCart,
   fetchBookReviews,
+  fetchLoans,
   submitBookReview,
 } from "../../../api/library.js";
 import { useAuth } from "../../../contexts/AuthContext.jsx";
@@ -42,9 +43,11 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const [reviews, setReviews] = useState([]);
   const [reviewsError, setReviewsError] = useState("");
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [pendingReviewNotice, setPendingReviewNotice] = useState("");
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [eligibleLoan, setEligibleLoan] = useState(null);
   const [cartStatus, setCartStatus] = useState({ type: "idle", message: "" });
   const [cartSubmitting, setCartSubmitting] = useState(false);
   const session = authSession ?? contextSession;
@@ -75,7 +78,11 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
           accessToken,
         });
         if (!ignore) {
-          setReviews(Array.isArray(payload) ? payload : []);
+          const rawList = Array.isArray(payload) ? payload : [];
+          const normalizedList = rawList
+            .map((item) => normalizeReviewEntry(item))
+            .filter((item) => item && item.isVisible);
+          setReviews(normalizedList);
         }
       } catch (error) {
         if (error.name === "AbortError" || ignore) {
@@ -126,6 +133,41 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   useEffect(() => {
     setCartStatus({ type: "idle", message: "" });
     setCartSubmitting(false);
+    setPendingReviewNotice("");
+  }, [displayBook?.book_id]);
+
+  const lookupEligibleLoan = useCallback(async () => {
+    if (!hasSession || !displayBook?.book_id || !accessToken) {
+      return null;
+    }
+    const searchScopes = [
+      {},
+      { status: "borrowed" },
+      { status: "overdue" },
+      { status: "returned" },
+      { status: "completed" },
+    ];
+    for (const scope of searchScopes) {
+      try {
+        const payload = await fetchLoans(accessToken, {
+          limit: 50,
+          ...scope,
+        });
+        const context = findLoanContextForBook(payload, displayBook.book_id);
+        if (context) {
+          return context;
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn(`[reviews] fetchLoans failed (${scope.status || "all"})`, error);
+        }
+      }
+    }
+    return null;
+  }, [accessToken, displayBook?.book_id, hasSession]);
+
+  useEffect(() => {
+    setEligibleLoan(null);
   }, [displayBook?.book_id]);
 
   const handleAddToCart = async () => {
@@ -323,9 +365,21 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                   try {
                     setReviewSubmitting(true);
                     setReviewsError("");
+                    let loanContext = eligibleLoan;
+                    if (!loanContext) {
+                      loanContext = await lookupEligibleLoan();
+                      setEligibleLoan(loanContext);
+                    }
                     const created = await submitBookReview(
                       displayBook.book_id,
-                      { rating: reviewRating, body: reviewText },
+                      {
+                        rating: reviewRating,
+                        body: reviewText,
+                        ...(loanContext?.loanId ? { loanId: loanContext.loanId } : {}),
+                        ...(loanContext?.loanItemId
+                          ? { loanItemId: loanContext.loanItemId }
+                          : {}),
+                      },
                       accessToken
                     );
                     setReviewText("");
@@ -347,19 +401,31 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                       }
                       return created;
                     })();
-                    if (
-                      normalizedReview &&
-                      typeof normalizedReview === "object" &&
-                      (normalizedReview.review_id !== undefined ||
-                        normalizedReview.rating !== undefined ||
-                        normalizedReview.body ||
-                        normalizedReview.comment ||
-                        normalizedReview.text)
-                    ) {
-                      setReviews((prev) => [normalizedReview, ...prev]);
+                    if (normalizedReview && typeof normalizedReview === "object") {
+                      if (normalizedReview.isVisible) {
+                        setReviews((prev) => [normalizedReview, ...prev]);
+                        setPendingReviewNotice("");
+                      } else {
+                        setPendingReviewNotice(
+                          "Thanks! Your review has been received and will be visible after a librarian approves it."
+                        );
+                      }
                     }
                   } catch (error) {
-                    setReviewsError(error.message ?? "Unable to submit review.");
+                    const serverMessage =
+                      error?.payload?.error ||
+                      error?.payload?.message ||
+                      (Array.isArray(error?.payload?.errors)
+                        ? error.payload.errors
+                            .map((err) =>
+                              typeof err === "string" ? err : err?.message || ""
+                            )
+                            .filter(Boolean)
+                            .join(" ")
+                        : "");
+                    setReviewsError(
+                      serverMessage || error.message || "Unable to submit review."
+                    );
                   } finally {
                     setReviewSubmitting(false);
                   }
@@ -402,6 +468,11 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                   </button>
                 </div>
               </form>
+              {pendingReviewNotice && (
+                <p className={styles["section-text"]} role="status">
+                  {pendingReviewNotice}
+                </p>
+              )}
 
               <div className={styles['reviews-list']}>
                 {reviewsLoading && <p className={styles['section-text']}>Loading reviews…</p>}
@@ -416,10 +487,10 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                 {reviews.map((review) => (
                   <ReviewItem
                     key={review.review_id ?? review.title}
-                    title={review.title ?? displayBook.title}
-                    date={review.createdAt ?? ""}
+                    title={review.displayName ?? "Library reader"}
+                    date={formatReviewDate(review.createdAt)}
                     rating={Number(review.rating ?? 0)}
-                    text={review.body ?? review.text}
+                    text={review.body ?? review.text ?? review.comment ?? review.content}
                   />
                 ))}
               </div>
@@ -573,3 +644,127 @@ function ScoreRow({ label, percent }) {
 }
 
 export default BookDetailPage;
+
+function extractLoanItems(rawLoan) {
+  if (!rawLoan) return [];
+  const base =
+    rawLoan.items ||
+    rawLoan.books ||
+    rawLoan.loan_items ||
+    rawLoan.loanItems ||
+    [];
+  return Array.isArray(base) ? base : [];
+}
+
+function findLoanContextForBook(payload, bookId) {
+  if (!payload || !bookId) return null;
+  const target = bookId?.toString?.();
+  if (!target) return null;
+  const list =
+    Array.isArray(payload?.items) ? payload.items :
+    Array.isArray(payload?.rows) ? payload.rows :
+    Array.isArray(payload?.data) ? payload.data :
+    Array.isArray(payload) ? payload : [];
+  for (const rawLoan of list) {
+    if (!rawLoan) continue;
+    const loanId = rawLoan.loan_id ?? rawLoan.id ?? rawLoan.loanId;
+    const items = extractLoanItems(rawLoan);
+    for (const item of items) {
+      if (!item) continue;
+      const candidate =
+        item.book_id ??
+        item.bookId ??
+        item.book?.book_id ??
+        item.book?.id ??
+        item.id;
+      const candidateString = candidate?.toString?.();
+      if (candidateString && candidateString === target) {
+          const loanItemId =
+            item.loan_item_id ??
+            item.loanItemId ??
+            item.id ??
+            null;
+          return {
+            loanId: loanId ?? null,
+            loanItemId,
+          };
+      }
+    }
+  }
+  return null;
+}
+
+function normalizeReviewEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const statusRaw = (
+    entry.status ||
+    entry.review_status ||
+    entry.state ||
+    entry.visibility ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+  const visibleStatuses = new Set(["visible", "approved", "published", "public"]);
+  const isVisible =
+    !statusRaw ||
+    visibleStatuses.has(statusRaw) ||
+    entry.is_visible === true ||
+    entry.hidden === false;
+  const userData = entry.user || entry.member || entry.account || {};
+  const firstName =
+    entry.first_name ||
+    entry.firstName ||
+    userData.first_name ||
+    userData.firstName ||
+    "";
+  const lastName =
+    entry.last_name ||
+    entry.lastName ||
+    userData.last_name ||
+    userData.lastName ||
+    "";
+  const composedName = [firstName, lastName].map((part) => part?.trim()).filter(Boolean).join(" ");
+  const fallbackName =
+    entry.user_name ||
+    entry.reviewer_name ||
+    userData.full_name ||
+    userData.fullName ||
+    userData.username ||
+    userData.email ||
+    entry.user_email ||
+    (entry.user_id ? `User #${entry.user_id}` : "");
+  const createdAt =
+    entry.created_at ||
+    entry.createdAt ||
+    entry.created_on ||
+    entry.updated_at ||
+    entry.updatedAt ||
+    "";
+  return {
+    ...entry,
+    status: statusRaw,
+    isVisible,
+    displayName: composedName || fallbackName || "Library reader",
+    createdAt,
+  };
+}
+
+function formatReviewDate(dateValue) {
+  if (!dateValue) return "";
+  try {
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) {
+      return dateValue;
+    }
+    return parsed.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return dateValue;
+  }
+}

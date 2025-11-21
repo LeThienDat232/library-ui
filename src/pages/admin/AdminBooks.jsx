@@ -119,9 +119,9 @@ function AdminBooks() {
       }
       const genreIds = formValues.genres
         ? formValues.genres
-            .split(",")
-            .map((genre) => Number(genre.trim()))
-            .filter((id) => Number.isFinite(id) && id > 0)
+          .split(",")
+          .map((genre) => Number(genre.trim()))
+          .filter((id) => Number.isFinite(id) && id > 0)
         : [];
       if (genreIds.length > 0) {
         payload.genre_ids = genreIds;
@@ -200,29 +200,37 @@ function AdminBooks() {
           {loading && <p className={styles.muted}>Loading…</p>}
           {!loading && (
             <ul>
-          {filteredBooks.map((book) => (
-            <li key={book.book_id}>
+              {filteredBooks.map((book) => (
+                <li key={book.book_id}>
                   <div>
                     <p className={styles.primaryText}>{book.title}</p>
                     <p className={styles.subText}>{book.author}</p>
                   </div>
                   <div className={styles.listActions}>
-                    <button type="button" onClick={() => handleEdit(book)}>
+                    <button
+                      type="button"
+                      className={styles.listBtn}
+                      onClick={() => handleEdit(book)}
+                    >
                       Edit
                     </button>
-                    <button type="button" onClick={() => handleDelete(book.book_id)}>
+                    <button
+                      type="button"
+                      className={`${styles.listBtn} ${styles.listBtnDanger}`}
+                      onClick={() => handleDelete(book.book_id)}
+                    >
                       Delete
                     </button>
                   </div>
                 </li>
               ))}
-          {!loading && filteredBooks.length === 0 && (
-            <li className={styles.muted}>
-              {books.length === 0 ? "No books yet." : "No books match that title."}
-            </li>
+              {!loading && filteredBooks.length === 0 && (
+                <li className={styles.muted}>
+                  {books.length === 0 ? "No books yet." : "No books match that title."}
+                </li>
+              )}
+            </ul>
           )}
-        </ul>
-      )}
         </div>
 
         <form className={styles.formPane} onSubmit={handleSubmit}>

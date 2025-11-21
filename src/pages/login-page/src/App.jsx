@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import styles from './App.module.css'
 import webshelfLogo from './assets/webshelf-logo.png'
 
-const LOGIN_ENDPOINT = 'https://library-api-dicz.onrender.com/auth/login'
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ?? 'https://library-api-dicz.onrender.com'
+).replace(/\/$/, '');
+const LOGIN_ENDPOINT = `${API_BASE_URL}/auth/login`;
 
 function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
@@ -146,10 +149,7 @@ function LoginPage({ onLogin }) {
           </label>
 
           <div className={styles['form-row']}>
-            <label className={styles.checkbox}>
-              <input type="checkbox" name="remember" />
-              <span>Keep me signed in</span>
-            </label>
+            <div style={{ flex: 1 }} />
             <Link className={styles['link-muted']} to="/reset-password">
               Forgot password?
             </Link>

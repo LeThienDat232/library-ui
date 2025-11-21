@@ -105,6 +105,12 @@
   gap: 1.2rem;
 }
 
+.name-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
 .field {
   display: flex;
   flex-direction: column;

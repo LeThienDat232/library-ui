@@ -8,6 +8,7 @@ const navItems = [
   { to: "/admin/circulation", label: "Circulation", description: "Loans" },
   { to: "/admin/invoices", label: "Invoices", description: "Fees" },
   { to: "/admin/transactions", label: "Transactions", description: "Payments" },
+  { to: "/admin/users", label: "Users", description: "Manage" },
   { to: "/admin/reviews", label: "Reviews", description: "Moderate" },
   { to: "/admin/books", label: "Books", description: "Catalog" },
 ];

@@ -37,6 +37,55 @@ function normalizeNumberId(rawValue, label = "Identifier") {
   return numeric;
 }
 
+function extractErrorMessage(payload) {
+  if (!payload) return "";
+  const directKeys = [payload.error, payload.message]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+  if (directKeys.length > 0) {
+    return directKeys[0];
+  }
+
+  const rawErrors = payload.errors;
+  if (!rawErrors) {
+    return "";
+  }
+  const errorItems = [];
+  if (Array.isArray(rawErrors)) {
+    errorItems.push(...rawErrors);
+  } else if (typeof rawErrors === "object") {
+    Object.values(rawErrors).forEach((value) => {
+      if (Array.isArray(value)) {
+        errorItems.push(...value);
+      } else {
+        errorItems.push(value);
+      }
+    });
+  } else if (typeof rawErrors === "string") {
+    errorItems.push(rawErrors);
+  }
+
+  const normalized = errorItems
+    .map((item) => {
+      if (!item) return "";
+      if (typeof item === "string") return item.trim();
+      if (typeof item === "object") {
+        const nestedMessage =
+          (typeof item.message === "string" && item.message) ||
+          (typeof item.error === "string" && item.error) ||
+          Object.values(item).find((value) => typeof value === "string");
+        return (nestedMessage || "").trim();
+      }
+      try {
+        return String(item).trim();
+      } catch {
+        return "";
+      }
+    })
+    .filter(Boolean);
+  return normalized.join(" ").trim();
+}
+
 async function parseResponse(response, fallbackMessage) {
   let payload = null;
   try {
@@ -46,9 +95,9 @@ async function parseResponse(response, fallbackMessage) {
   }
 
   if (!response.ok) {
+    const detailedMessage = extractErrorMessage(payload);
     const message =
-      payload?.error ||
-      payload?.message ||
+      detailedMessage ||
       fallbackMessage ||
       `Request failed (${response.status})`;
     const error = new Error(message);
@@ -158,11 +207,74 @@ export async function fetchLoanHistory(
   params = {},
   options = {}
 ) {
-  const response = await fetch(buildUrl("/loans/history", params), {
-    headers: authHeaders(accessToken),
-    signal: options.signal,
-  });
-  return parseResponse(response, "Unable to load your history");
+  try {
+    const response = await fetch(buildUrl("/loans/history", params), {
+      headers: authHeaders(accessToken),
+      signal: options.signal,
+    });
+    return parseResponse(response, "Unable to load your history");
+  } catch (error) {
+    if (
+      error?.status === 404 ||
+      error?.status === 500 ||
+      error?.status === 502 ||
+      error?.status === 503 ||
+      error?.status === 504
+    ) {
+      const fallbackItems = await fetchLoanHistoryFallback(
+        accessToken,
+        params,
+        options
+      );
+      return {
+        page: 1,
+        limit: fallbackItems.length,
+        total: fallbackItems.length,
+        items: fallbackItems,
+      };
+    }
+    throw error;
+  }
+}
+
+async function fetchLoanHistoryFallback(accessToken, params, options) {
+  const requestedStatuses = params?.status;
+  const statusList = Array.isArray(requestedStatuses)
+    ? requestedStatuses
+    : requestedStatuses
+      ? [requestedStatuses]
+      : ["returned", "completed", "cancelled", "void"];
+  const seen = new Set();
+  const aggregated = [];
+
+  for (const status of statusList) {
+    const lookupKey = (status || "").toString().trim().toLowerCase();
+    if (!lookupKey || seen.has(lookupKey)) continue;
+    seen.add(lookupKey);
+    try {
+      const payload = await fetchLoans(
+        accessToken,
+        { ...params, status: lookupKey },
+        options
+      );
+      const rows = normalizeList(payload);
+      aggregated.push(...rows);
+    } catch (innerError) {
+      if (
+        innerError?.status &&
+        innerError.status >= 500 &&
+        innerError.status <= 599
+      ) {
+        continue;
+      }
+      if (innerError?.status === 404) {
+        continue;
+      }
+      throw innerError;
+    }
+  }
+
+  return aggregated;
 }
 
 export async function cancelLoan(loanId, accessToken, options = {}) {
@@ -257,7 +369,7 @@ export async function fetchBookReviews(bookId, options = {}) {
   }
   try {
     const response = await fetch(
-      `${API_BASE_URL}/reviews/book/${numericBookId}`,
+      buildUrl("/reviews", { book_id: numericBookId, limit: options.limit || 50 }),
       {
         method: "GET",
         headers,
@@ -279,6 +391,38 @@ export async function submitBookReview(bookId, review, accessToken) {
   const ratingValue = Number(review?.rating ?? review?.score ?? 0);
   const textValue =
     review?.body ?? review?.comment ?? review?.content ?? review?.text ?? "";
+  const providedLoanId =
+    review?.loanId ??
+    review?.loan_id ??
+    review?.loanID ??
+    review?.loan ??
+    null;
+  const providedLoanItemId =
+    review?.loanItemId ??
+    review?.loan_item_id ??
+    review?.loanItemID ??
+    review?.loan_item ??
+    null;
+  let normalizedLoanId = null;
+  let normalizedLoanItemId = null;
+  if (providedLoanId !== null && providedLoanId !== undefined && providedLoanId !== "") {
+    try {
+      normalizedLoanId = normalizeNumberId(providedLoanId, "Loan id");
+    } catch {
+      normalizedLoanId = null;
+    }
+  }
+  if (
+    providedLoanItemId !== null &&
+    providedLoanItemId !== undefined &&
+    providedLoanItemId !== ""
+  ) {
+    try {
+      normalizedLoanItemId = normalizeNumberId(providedLoanItemId, "Loan item id");
+    } catch {
+      normalizedLoanItemId = null;
+    }
+  }
   const payload = {
     book_id: numericBookId,
     rating: Number.isFinite(ratingValue) ? ratingValue : 0,
@@ -286,14 +430,17 @@ export async function submitBookReview(bookId, review, accessToken) {
     comment: textValue,
     title: review?.title || undefined,
   };
-  const response = await fetch(
-    `${API_BASE_URL}/reviews/book/${numericBookId}`,
-    {
-      method: "POST",
-      headers: authHeaders(accessToken, { "Content-Type": "application/json" }),
-      body: JSON.stringify(payload),
-    }
-  );
+  if (normalizedLoanId) {
+    payload.loan_id = normalizedLoanId;
+  }
+  if (normalizedLoanItemId) {
+    payload.loan_item_id = normalizedLoanItemId;
+  }
+  const response = await fetch(`${API_BASE_URL}/reviews`, {
+    method: "POST",
+    headers: authHeaders(accessToken, { "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
   return parseResponse(response, "Unable to submit review");
 }
 

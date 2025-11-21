@@ -10,7 +10,8 @@ function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formValues, setFormValues] = useState({
     contact: '',
-    username: '',
+    firstName: '',
+    lastName: '',
     password: '',
     confirmPassword: '',
   })
@@ -29,11 +30,16 @@ function RegisterPage() {
     setSuccessMessage('')
 
     const email = formValues.contact.trim()
-    const username = formValues.username.trim()
+    const firstName = formValues.firstName.trim()
+    const lastName = formValues.lastName.trim()
     const password = formValues.password
 
     if (!email) {
       setErrorMessage('Please enter an email address.')
+      return
+    }
+    if (!firstName || !lastName) {
+      setErrorMessage('Please enter both your first and last name.')
       return
     }
     if (!password) {
@@ -53,7 +59,8 @@ function RegisterPage() {
         body: JSON.stringify({
           email,
           password,
-          ...(username ? { username } : {}),
+          first_name: firstName,
+          last_name: lastName,
         }),
       })
       const payload = await response.json().catch(() => null)
@@ -69,7 +76,8 @@ function RegisterPage() {
       )
       setFormValues({
         contact: email,
-        username,
+        firstName,
+        lastName,
         password: '',
         confirmPassword: '',
       })
@@ -134,18 +142,34 @@ function RegisterPage() {
             />
           </label>
 
-          <label className={styles.field}>
-            <span>Username (optional)</span>
-            <input
-              type="text"
-              name="username"
-              value={formValues.username}
-              onChange={handleChange}
-              placeholder="Your display name"
-              autoComplete="username"
-              disabled={isSubmitting}
-            />
-          </label>
+          <div className={styles['name-row']}>
+            <label className={styles.field}>
+              <span>First name</span>
+              <input
+                type="text"
+                name="firstName"
+                value={formValues.firstName}
+                onChange={handleChange}
+                placeholder="Jane"
+                autoComplete="given-name"
+                required
+                disabled={isSubmitting}
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Last name</span>
+              <input
+                type="text"
+                name="lastName"
+                value={formValues.lastName}
+                onChange={handleChange}
+                placeholder="Doe"
+                autoComplete="family-name"
+                required
+                disabled={isSubmitting}
+              />
+            </label>
+          </div>
 
           <label className={styles.field}>
             <span>Password</span>

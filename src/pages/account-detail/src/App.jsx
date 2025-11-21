@@ -39,6 +39,31 @@ const RETURNED_STATUSES = new Set([
 ]);
 const CANCELLED_STATUSES = new Set(["cancelled", "canceled", "void"]);
 
+// Overdue fee configuration
+const OVERDUE_FEE_PER_DAY = 5000; // VND per day overdue
+const MAX_OVERDUE_FEE = 100000; // Maximum fee cap in VND
+const GRACE_PERIOD_DAYS = 0; // No grace period
+
+function calculateOverdueFee(dueDate) {
+  if (!dueDate) return 0;
+  const due = new Date(dueDate);
+  const now = new Date();
+  const daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+
+  if (daysOverdue <= GRACE_PERIOD_DAYS) return 0;
+
+  const effectiveDays = daysOverdue - GRACE_PERIOD_DAYS;
+  const calculatedFee = effectiveDays * OVERDUE_FEE_PER_DAY;
+  return Math.min(calculatedFee, MAX_OVERDUE_FEE);
+}
+
+function formatCurrency(amount) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(amount);
+}
+
 function formatDate(dateValue) {
   if (!dateValue) return null;
   const date = new Date(dateValue);
@@ -57,16 +82,16 @@ function normalizeCartResponse(payload) {
   const itemsSource = Array.isArray(base.items)
     ? base.items
     : Array.isArray(payload?.items)
-    ? payload.items
-    : Array.isArray(base.cart_items)
-    ? base.cart_items
-    : Array.isArray(payload?.cart_items)
-    ? payload.cart_items
-    : Array.isArray(base)
-    ? base
-    : Array.isArray(payload)
-    ? payload
-    : [];
+      ? payload.items
+      : Array.isArray(base.cart_items)
+        ? base.cart_items
+        : Array.isArray(payload?.cart_items)
+          ? payload.cart_items
+          : Array.isArray(base)
+            ? base
+            : Array.isArray(payload)
+              ? payload
+              : [];
   const items = itemsSource.map((item, index) => {
     const book = item.book || item.details || item.book_info || item;
     const bookId =
@@ -109,10 +134,10 @@ function normalizeLoan(rawLoan, index = 0) {
   const itemsSource = Array.isArray(rawLoan.items)
     ? rawLoan.items
     : Array.isArray(rawLoan.books)
-    ? rawLoan.books
-    : Array.isArray(rawLoan.loan_items)
-    ? rawLoan.loan_items
-    : [];
+      ? rawLoan.books
+      : Array.isArray(rawLoan.loan_items)
+        ? rawLoan.loan_items
+        : [];
   const items = itemsSource.map((item, itemIndex) => {
     const book = item.book || item.details || item.book_info || item;
     const bookId =
@@ -175,6 +200,37 @@ function normalizeLoan(rawLoan, index = 0) {
     null;
   const qrRef =
     rawLoan.ticket_token || rawLoan.qr_ref || rawLoan.qrRef || rawLoan.token;
+
+  const renewalsUsed =
+    rawLoan.renew_count ?? rawLoan.renewals ?? rawLoan.renewal_count ?? 0;
+  const maxRenewals =
+    rawLoan.max_renewals ??
+    rawLoan.allowed_renewals ??
+    rawLoan.renewal_limit ??
+    rawLoan.maxRenewals ??
+    null;
+  let renewalsRemaining =
+    rawLoan.renewals_remaining ??
+    rawLoan.renewals_left ??
+    rawLoan.remaining_renewals ??
+    null;
+  if (renewalsRemaining === null && Number.isFinite(maxRenewals)) {
+    renewalsRemaining = Math.max(Number(maxRenewals) - Number(renewalsUsed || 0), 0);
+  }
+  const isOverdueStatus = OVERDUE_STATUSES.has(status);
+
+  // Calculate overdue fee if loan is overdue
+  const overdueFee = isOverdueStatus
+    ? rawLoan.overdue_fee ??
+    rawLoan.overdueFee ??
+    rawLoan.fee ??
+    rawLoan.fine_amount ??
+    calculateOverdueFee(dueDate)
+    : 0;
+  const canRenew =
+    (!isOverdueStatus || overdueFee <= 0) &&
+    (renewalsRemaining === null || renewalsRemaining > 0);
+
   return {
     id: rawLoan.loan_id ?? rawLoan.id ?? `${index}`,
     code,
@@ -184,6 +240,11 @@ function normalizeLoan(rawLoan, index = 0) {
     returnedOn,
     qrRef,
     items,
+    overdueFee,
+    renewalsUsed,
+    maxRenewals,
+    renewalsRemaining,
+    canRenew,
   };
 }
 
@@ -316,7 +377,7 @@ function getStatusMeta(status) {
   return { key: "default", label, dateLabel: "Updated" };
 }
 
-function CartPage() {
+function CartPage({ onBooksReload }) {
   const [activeTab, setActiveTab] = useState("cart");
   const [searchValue, setSearchValue] = useState("");
   const [cart, setCart] = useState({ code: "", items: [] });
@@ -367,7 +428,9 @@ function CartPage() {
       if (!isMountedRef.current || requestId !== cartRequestIdRef.current) return;
       setCart(normalizeCartResponse(payload));
     } catch (error) {
-      console.warn("Cart load failed", error);
+      if (import.meta.env.DEV) {
+        console.warn("Cart load failed", error);
+      }
       if (!isMountedRef.current || requestId !== cartRequestIdRef.current) return;
       setCart({ code: "", items: [] });
       setCartError(
@@ -399,7 +462,9 @@ function CartPage() {
       if (!isMountedRef.current || requestId !== loansRequestIdRef.current) return;
       setLoans(enriched);
     } catch (error) {
-      console.warn("Loans load failed", error);
+      if (import.meta.env.DEV) {
+        console.warn("Loans load failed", error);
+      }
       if (!isMountedRef.current || requestId !== loansRequestIdRef.current) return;
       setLoans([]);
       setLoansError(
@@ -430,7 +495,9 @@ function CartPage() {
       if (!isMountedRef.current || requestId !== historyRequestIdRef.current) return;
       setHistory(enriched);
     } catch (error) {
-      console.warn("History load failed", error);
+      if (import.meta.env.DEV) {
+        console.warn("History load failed", error);
+      }
       if (!isMountedRef.current || requestId !== historyRequestIdRef.current) return;
       const fallback = deriveHistoryFromLoans(loans);
       setHistory(fallback);
@@ -514,9 +581,8 @@ function CartPage() {
   }, [filteredCartItems, selectedCartItemId]);
 
   const getTabButtonClass = (tab) =>
-    `${styles["tabs-btn"]} ${
-      activeTab === tab ? styles["tabs-btn-active"] : ""
-    }`.trim();
+    `${styles["tabs-btn"]} ${activeTab === tab ? styles["tabs-btn-active"] : ""
+      }`.trim();
 
   const handleSelectCartItem = (itemId) => {
     setSelectedCartItemId(itemId);
@@ -655,6 +721,13 @@ function CartPage() {
 
   const handleRenewLoan = (order) => {
     if (!order?.id) return;
+    if (order.canRenew === false) {
+      const reason = order.overdueFee > 0
+        ? "Pay any overdue fees before renewing this loan."
+        : "All renewals have already been used for this loan.";
+      setLoanActionMessage(reason);
+      return;
+    }
     setRenewError("");
     setRenewDialog(order);
   };
@@ -662,6 +735,14 @@ function CartPage() {
   const confirmRenewLoan = async () => {
     if (!renewDialog?.id) return;
     const order = renewDialog;
+    if (order.canRenew === false) {
+      const message = order.overdueFee > 0
+        ? "Overdue fees must be paid before renewing this loan."
+        : "This loan does not have any renewals remaining.";
+      setRenewError(message);
+      setLoanActionMessage(message);
+      return;
+    }
     setLoanActionMessage("");
     setLoanActionState((prev) => ({ ...prev, [order.id]: "renew" }));
     try {
@@ -719,6 +800,11 @@ function CartPage() {
     }
   };
 
+  const handleViewBook = (bookId) => {
+    if (!bookId) return;
+    navigate(`/book/${bookId}`);
+  };
+
   const handleCancelReservation = async (order) => {
     if (!order?.id) return;
     const actionKey = order.id;
@@ -728,6 +814,10 @@ function CartPage() {
       await cancelLoan(order.id, accessToken);
       await Promise.all([loadLoans(), loadHistory()]);
       setLoanActionMessage("Reservation cancelled.");
+      // Reload book catalog to update inventory counts
+      if (typeof onBooksReload === "function") {
+        onBooksReload();
+      }
     } catch (error) {
       const status = error?.status ? ` (status ${error.status})` : "";
       const detail =
@@ -782,11 +872,10 @@ function CartPage() {
         </div>
         {cartActionStatus.message && (
           <p
-            className={`${styles["cart-note"]} ${
-              cartActionStatus.type === "error"
-                ? styles["cart-note-error"]
-                : ""
-            }`.trim()}
+            className={`${styles["cart-note"]} ${cartActionStatus.type === "error"
+              ? styles["cart-note-error"]
+              : ""
+              }`.trim()}
           >
             {cartActionStatus.message}
           </p>
@@ -795,9 +884,8 @@ function CartPage() {
           {filteredCartItems.map((book) => {
             const { qtyValue, isItemBusy } = getCartItemUiState(book);
             const isSelected = book.id === selectedCartItemId;
-            const loanItemClass = `${styles["loan-item"]} ${
-              isSelected ? styles["cart-item-selected"] : ""
-            }`.trim();
+            const loanItemClass = `${styles["loan-item"]} ${isSelected ? styles["cart-item-selected"] : ""
+              }`.trim();
             return (
               <div
                 className={loanItemClass}
@@ -931,93 +1019,117 @@ function CartPage() {
           const pillClass = styles[`status-${meta.key}`] || styles["status-default"];
           const dateValue =
             meta.key === "reserved"
-          ? order.pickupBy
-          : meta.key === "returned"
-          ? order.returnedOn
-          : order.dueDate || order.returnedOn || order.pickupBy;
-      const formattedDate = formatDate(dateValue);
-      return (
-        <div
-          className={`${styles["loan-card"]} ${stateClass}`.trim()}
-          key={order.id}
-        >
-          <div className={styles["loan-items"]}>
-            {order.items.map((item) => (
-              <div className={styles["loan-item"]} key={item.id}>
-                <img
-                  className={styles["loan-cover"]}
-                  src={item.cover}
-                  alt={item.title}
-                />
-                <div className={styles["loan-info"]}>
-                  <h3>{item.title}</h3>
-                  <p className={styles["loan-author"]}>By {item.author}</p>
-                  <p className={styles["loan-desc"]}>
-                    Keep an eye on your pickup and due dates.
+              ? order.pickupBy
+              : meta.key === "returned"
+                ? order.returnedOn
+                : order.dueDate || order.returnedOn || order.pickupBy;
+          const formattedDate = formatDate(dateValue);
+          return (
+            <div
+              className={`${styles["loan-card"]} ${stateClass}`.trim()}
+              key={order.id}
+            >
+              <div className={styles["loan-items"]}>
+                {order.items.map((item) => (
+                  <div className={styles["loan-item"]} key={item.id}>
+                    <button
+                      type="button"
+                      className={styles["loan-cover-btn"]}
+                      onClick={() => handleViewBook(item.bookId)}
+                      aria-label={`View details for ${item.title}`}
+                    >
+                      <img
+                        className={styles["loan-cover"]}
+                        src={item.cover}
+                        alt={item.title}
+                      />
+                    </button>
+                    <div className={styles["loan-info"]}>
+                      <h3>{item.title}</h3>
+                      <p className={styles["loan-author"]}>By {item.author}</p>
+                      <p className={styles["loan-desc"]}>
+                        Keep an eye on your pickup and due dates.
+                      </p>
+                      <p className={styles["loan-qty"]}>Qty: {item.qty}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className={styles["loan-card-right"]}>
+                <span className={`${styles["status-pill"]} ${pillClass}`}>
+                  {meta.label}
+                </span>
+                {formattedDate && (
+                  <p className={styles["loan-return"]}>
+                    {meta.dateLabel}: <span>{formattedDate}</span>
                   </p>
-                  <p className={styles["loan-qty"]}>Qty: {item.qty}</p>
-                </div>
+                )}
+                {meta.key === "overdue" && order.overdueFee > 0 && (
+                  <p className={styles["loan-overdue-fee"]}>
+                    Overdue Fee: <span className={styles["fee-amount"]}>{formatCurrency(order.overdueFee)}</span>
+                  </p>
+                )}
+                {typeof order.renewalsRemaining === "number" && (
+                  <p className={styles["loan-renewals"]}>
+                    Renewals left: <span>{order.renewalsRemaining}</span>
+                  </p>
+                )}
+                {order.qrRef && (
+                  <p className={styles["loan-qr"]}>
+                    QR Ref: <span>{order.qrRef}</span>
+                  </p>
+                )}
+                <p className={styles["loan-id"]}>Loan ID # {order.id}</p>
+                {meta.key === "reserved" ? (
+                  <div className={styles["loan-actions"]}>
+                    <button
+                      className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
+                      type="button"
+                      onClick={() => handleShowQr(order)}
+                      disabled={loanActionState[order.id] === "qr"}
+                    >
+                      {loanActionState[order.id] === "qr" ? "Loading…" : "Show QR Code"}
+                    </button>
+                    <button
+                      className={`${styles["pill-btn"]} ${styles["pill-btn-danger"]}`}
+                      type="button"
+                      onClick={() => handleCancelReservation(order)}
+                      disabled={loanActionState[order.id] === "cancel"}
+                    >
+                      {loanActionState[order.id] === "cancel"
+                        ? "Cancelling…"
+                        : "Cancel Reservation"}
+                    </button>
+                  </div>
+                ) : meta.key === "borrowing" || meta.key === "overdue" ? (
+                  <div className={styles["loan-actions"]}>
+                    <button
+                      className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
+                      type="button"
+                      onClick={() => handleRenewLoan(order)}
+                      disabled={
+                        loanActionState[order.id] === "renew" || order.canRenew === false
+                      }
+                    >
+                      {order.canRenew === false
+                        ? "Renew unavailable"
+                        : loanActionState[order.id] === "renew"
+                          ? "Renewing…"
+                          : "Renew"}
+                    </button>
+                    {order.canRenew === false && (
+                      <p className={styles["loan-note"]}>
+                        {order.overdueFee > 0
+                          ? "Pay overdue fees before renewing."
+                          : "All renewals have been used."}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
               </div>
-            ))}
-          </div>
-          <div className={styles["loan-card-right"]}>
-            <span className={`${styles["status-pill"]} ${pillClass}`}>
-              {meta.label}
-            </span>
-            {formattedDate && (
-              <p className={styles["loan-return"]}>
-                {meta.dateLabel}: <span>{formattedDate}</span>
-              </p>
-            )}
-            {order.qrRef && (
-              <p className={styles["loan-qr"]}>
-                QR Ref: <span>{order.qrRef}</span>
-              </p>
-            )}
-            <p className={styles["loan-id"]}>Loan ID # {order.id}</p>
-            {meta.key === "reserved" ? (
-              <div className={styles["loan-actions"]}>
-                <button
-                  className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
-                  type="button"
-                  onClick={() => handleShowQr(order)}
-                  disabled={loanActionState[order.id] === "qr"}
-                >
-                  {loanActionState[order.id] === "qr" ? "Loading…" : "Show QR Code"}
-                </button>
-                <button
-                  className={`${styles["pill-btn"]} ${styles["pill-btn-danger"]}`}
-                  type="button"
-                  onClick={() => handleCancelReservation(order)}
-                  disabled={loanActionState[order.id] === "cancel"}
-                >
-                  {loanActionState[order.id] === "cancel"
-                    ? "Cancelling…"
-                    : "Cancel Reservation"}
-                </button>
-              </div>
-            ) : meta.key === "borrowing" ? (
-              <button
-                className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
-                type="button"
-                onClick={() => handleRenewLoan(order)}
-                disabled={loanActionState[order.id] === "renew"}
-              >
-                {loanActionState[order.id] === "renew" ? "Renewing…" : "Renew"}
-              </button>
-            ) : meta.key === "overdue" ? (
-              <button
-                className={`${styles["pill-btn"]} ${styles["pill-btn-primary"]}`}
-                type="button"
-                disabled
-              >
-                Renew
-              </button>
-            ) : null}
-          </div>
-        </div>
-      );
-    })}
+            </div>
+          );
+        })}
       </>
     );
   };
@@ -1036,51 +1148,58 @@ function CartPage() {
     return (
       <>
         {filteredHistory.map((order) => {
-      const meta = getStatusMeta(order.status);
-      const returnedDate = formatDate(order.returnedOn || order.dueDate);
-      const stateClass = styles[`loan-card-${meta.key}`] || "";
-      const statusClass =
-        styles[`status-${meta.key}`] || styles["status-default"];
-      const isReturned = meta.key === "returned";
-      return (
-        <div
-          className={`${styles["loan-card"]} ${stateClass}`.trim()}
-          key={order.id}
-        >
-          <div className={styles["loan-items"]}>
-            {order.items.map((item) => (
-              <div className={styles["loan-item"]} key={item.id}>
-                <img
-                  className={styles["loan-cover"]}
-                  src={item.cover}
-                  alt={item.title}
-                />
-                <div className={styles["loan-info"]}>
-                  <h3>{item.title}</h3>
-                  <p className={styles["loan-author"]}>By {item.author}</p>
-                  <p className={styles["loan-desc"]}>
-                    Thank you for reading with Webshelf.
-                  </p>
-                  <p className={styles["loan-qty"]}>Qty: {item.qty}</p>
-                </div>
+          const meta = getStatusMeta(order.status);
+          const returnedDate = formatDate(order.returnedOn || order.dueDate);
+          const stateClass = styles[`loan-card-${meta.key}`] || "";
+          const statusClass =
+            styles[`status-${meta.key}`] || styles["status-default"];
+          const isReturned = meta.key === "returned";
+          return (
+            <div
+              className={`${styles["loan-card"]} ${stateClass}`.trim()}
+              key={order.id}
+            >
+              <div className={styles["loan-items"]}>
+                {order.items.map((item) => (
+                  <div className={styles["loan-item"]} key={item.id}>
+                    <button
+                      type="button"
+                      className={styles["loan-cover-btn"]}
+                      onClick={() => handleViewBook(item.bookId)}
+                      aria-label={`View details for ${item.title}`}
+                    >
+                      <img
+                        className={styles["loan-cover"]}
+                        src={item.cover}
+                        alt={item.title}
+                      />
+                    </button>
+                    <div className={styles["loan-info"]}>
+                      <h3>{item.title}</h3>
+                      <p className={styles["loan-author"]}>By {item.author}</p>
+                      <p className={styles["loan-desc"]}>
+                        Thank you for reading with Webshelf.
+                      </p>
+                      <p className={styles["loan-qty"]}>Qty: {item.qty}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className={styles["loan-card-right"]}>
-            <span className={`${styles["status-pill"]} ${statusClass}`}>
-              {meta.label}
-            </span>
-            {returnedDate && (
-              <p className={styles["loan-return"]}>
-                Returned On: <span>{returnedDate}</span>
-              </p>
-            )}
-            <p className={styles["loan-id"]}>Loan ID # {order.id}</p>
-            {isReturned && null}
-          </div>
-        </div>
-      );
-    })}
+              <div className={styles["loan-card-right"]}>
+                <span className={`${styles["status-pill"]} ${statusClass}`}>
+                  {meta.label}
+                </span>
+                {returnedDate && (
+                  <p className={styles["loan-return"]}>
+                    Returned On: <span>{returnedDate}</span>
+                  </p>
+                )}
+                <p className={styles["loan-id"]}>Loan ID # {order.id}</p>
+                {isReturned && null}
+              </div>
+            </div>
+          );
+        })}
       </>
     );
   };
@@ -1168,14 +1287,12 @@ function CartPage() {
           >
             Your Cart
           </button>
-          <span className={styles["tabs-divider"]} />
           <button
             className={getTabButtonClass("reading")}
             onClick={() => setActiveTab("reading")}
           >
             Reading Books
           </button>
-          <span className={styles["tabs-divider"]} />
           <button
             className={getTabButtonClass("history")}
             onClick={() => setActiveTab("history")}

@@ -14,6 +14,7 @@ import AdminInvoices from "./pages/admin/AdminInvoices.jsx";
 import AdminTransactions from "./pages/admin/AdminTransactions.jsx";
 import AdminReviews from "./pages/admin/AdminReviews.jsx";
 import AdminBooks from "./pages/admin/AdminBooks.jsx";
+import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import BookDetailRoute from "./pages/book-detail/BookDetailRoute.jsx";
 import { AuthContext, isAdminUser } from "./contexts/AuthContext.jsx";
 
@@ -59,43 +60,33 @@ function App() {
   const accessToken = authSession?.accessToken ?? authSession?.token ?? "";
   const isLoggedIn = Boolean(accessToken || authSession);
 
-  useEffect(() => {
-    let ignore = false;
-    async function loadBooks() {
-      try {
-        setBooksLoading(true);
-        setBooksError("");
-        const params = new URLSearchParams({ limit: "25000" });
-        if (searchValue.trim()) {
-          params.set("title", searchValue.trim());
-        }
-        const response = await fetch(
-          `https://library-api-dicz.onrender.com/books?${params.toString()}`
-        );
-        if (!response.ok) {
-          throw new Error(`Unable to load catalog (${response.status})`);
-        }
-        const payload = await response.json();
-        if (!ignore) {
-          setBooks(payload.items ?? []);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setBooksError(error.message ?? "Failed to reach library API");
-          setBooks([]);
-        }
-      } finally {
-        if (!ignore) {
-          setBooksLoading(false);
-        }
+  const loadBooks = useCallback(async () => {
+    try {
+      setBooksLoading(true);
+      setBooksError("");
+      const params = new URLSearchParams({ limit: "25000" });
+      if (searchValue.trim()) {
+        params.set("title", searchValue.trim());
       }
+      const response = await fetch(
+        `https://library-api-dicz.onrender.com/books?${params.toString()}`
+      );
+      if (!response.ok) {
+        throw new Error(`Unable to load catalog (${response.status})`);
+      }
+      const payload = await response.json();
+      setBooks(payload.items ?? []);
+    } catch (error) {
+      setBooksError(error.message ?? "Failed to reach library API");
+      setBooks([]);
+    } finally {
+      setBooksLoading(false);
     }
-
-    loadBooks();
-    return () => {
-      ignore = true;
-    };
   }, [searchValue]);
+
+  useEffect(() => {
+    loadBooks();
+  }, [loadBooks]);
 
   const catalogById = useMemo(() => {
     const map = new Map();
@@ -167,71 +158,72 @@ function App() {
                 onSearchChange={setSearchValue}
                 onBookSelect={handleBookSelect}
               />
-          }
-        />
-        <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/book"
-          element={
-            <BookDetailRoute
-              selectedBook={selectedBook}
-              books={books}
-              onBookSelect={handleBookSelect}
-              authSession={authSession}
-              catalogById={catalogById}
-            />
-          }
-        />
-        <Route
-          path="/book/:bookId"
-          element={
-            <BookDetailRoute
-              selectedBook={selectedBook}
-              books={books}
-              onBookSelect={handleBookSelect}
-              authSession={authSession}
-              catalogById={catalogById}
-            />
-          }
-        />
-        <Route
-          path="/cart"
-          element={
-            isLoggedIn ? <CartPage /> : <Navigate to="/login" replace />
-          }
-        />
-        <Route
-          path="/account"
-          element={
-            isLoggedIn ? (
-              <AccountSettings
+            }
+          />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/book"
+            element={
+              <BookDetailRoute
+                selectedBook={selectedBook}
+                books={books}
+                onBookSelect={handleBookSelect}
                 authSession={authSession}
-                onLogout={handleLogout}
+                catalogById={catalogById}
               />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <RequireAdmin>
-              <AdminLayout />
-            </RequireAdmin>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="circulation" element={<AdminCirculation />} />
-          <Route path="invoices" element={<AdminInvoices />} />
-          <Route path="transactions" element={<AdminTransactions />} />
-          <Route path="reviews" element={<AdminReviews />} />
-          <Route path="books" element={<AdminBooks />} />
-        </Route>
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/auth/reset" element={<ResetPassword />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+            }
+          />
+          <Route
+            path="/book/:bookId"
+            element={
+              <BookDetailRoute
+                selectedBook={selectedBook}
+                books={books}
+                onBookSelect={handleBookSelect}
+                authSession={authSession}
+                catalogById={catalogById}
+              />
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              isLoggedIn ? <CartPage onBooksReload={loadBooks} /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              isLoggedIn ? (
+                <AccountSettings
+                  authSession={authSession}
+                  onLogout={handleLogout}
+                />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <AdminLayout />
+              </RequireAdmin>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="circulation" element={<AdminCirculation />} />
+            <Route path="invoices" element={<AdminInvoices />} />
+            <Route path="transactions" element={<AdminTransactions />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="reviews" element={<AdminReviews />} />
+            <Route path="books" element={<AdminBooks />} />
+          </Route>
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/reset" element={<ResetPassword />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthContext.Provider>

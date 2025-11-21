@@ -150,3 +150,112 @@
   color: #475569;
   font-size: 0.9rem;
 }
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 20px;
+}
+
+.modalPanel {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 25px 55px rgba(15, 23, 42, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.modalLabel {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: #94a3b8;
+  margin: 0 0 4px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.modalCloseBtn {
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #94a3b8;
+}
+
+.modalSubtitle {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.modalGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 520px) {
+  .modalGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.modalGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.modalGrid select,
+.modalGrid input {
+  border-radius: 12px;
+  border: 1px solid #cbd5f5;
+  padding: 10px 12px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modalSecondaryBtn,
+.modalPrimaryBtn {
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.modalSecondaryBtn {
+  background: #fff;
+  border: 1px solid #cbd5f5;
+}
+
+.modalPrimaryBtn {
+  background: #1f7bff;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(31, 123, 255, 0.3);
+}

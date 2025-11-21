@@ -24,6 +24,51 @@ function buildUrl(path, params) {
   return url.toString();
 }
 
+function extractErrorMessage(payload) {
+  if (!payload) return "";
+  const keys = [payload.error, payload.message]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+  if (keys.length > 0) {
+    return keys[0];
+  }
+  const rawErrors = payload.errors;
+  if (!rawErrors) return "";
+  const collection = [];
+  if (Array.isArray(rawErrors)) {
+    collection.push(...rawErrors);
+  } else if (typeof rawErrors === "object") {
+    Object.values(rawErrors).forEach((value) => {
+      if (Array.isArray(value)) {
+        collection.push(...value);
+      } else {
+        collection.push(value);
+      }
+    });
+  } else if (typeof rawErrors === "string") {
+    collection.push(rawErrors);
+  }
+  const normalized = collection
+    .map((item) => {
+      if (!item) return "";
+      if (typeof item === "string") return item.trim();
+      if (typeof item === "object") {
+        const nested =
+          (typeof item.message === "string" && item.message) ||
+          (typeof item.error === "string" && item.error) ||
+          Object.values(item).find((value) => typeof value === "string");
+        return (nested || "").trim();
+      }
+      try {
+        return String(item).trim();
+      } catch {
+        return "";
+      }
+    })
+    .filter(Boolean);
+  return normalized.join(" ").trim();
+}
+
 async function parseResponse(response, fallbackMessage) {
   let payload = null;
   try {
@@ -33,9 +78,9 @@ async function parseResponse(response, fallbackMessage) {
   }
 
   if (!response.ok) {
+    const detailedMessage = extractErrorMessage(payload);
     const message =
-      payload?.error ||
-      payload?.message ||
+      detailedMessage ||
       fallbackMessage ||
       `Request failed (${response.status})`;
     const error = new Error(message);
@@ -69,7 +114,10 @@ export async function adminScan(tokenString, accessToken) {
   const response = await fetch(`${API_BASE_URL}/admin/scan`, {
     method: "POST",
     headers: authHeaders(accessToken),
-    body: JSON.stringify({ code: tokenString?.trim?.() ?? tokenString }),
+    body: JSON.stringify({
+      token: tokenString?.trim?.() ?? tokenString,
+      code: tokenString?.trim?.() ?? tokenString,
+    }),
   });
   return parseResponse(response, "Scan failed");
 }
@@ -241,4 +289,21 @@ export async function adminDeleteBook(bookId, accessToken) {
     headers: authHeaders(accessToken),
   });
   return parseResponse(response, "Unable to delete book");
+}
+
+export async function adminListUsers(params, accessToken) {
+  const response = await fetch(buildUrl("/admin/users", params), {
+    headers: authHeaders(accessToken),
+  });
+  const payload = await parseResponse(response, "Unable to load users");
+  return normalizeListPayload(payload);
+}
+
+export async function adminUpdateUser(userId, payload, accessToken) {
+  const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+    method: "PUT",
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response, "Unable to update user");
 }
