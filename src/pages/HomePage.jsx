@@ -226,7 +226,7 @@ function HomePage({
     };
   }, []);
 
-  const reservedFooterOffset = Math.max(footerHeight + 20, 280);
+  const reservedFooterOffset = Math.max(footerHeight + 20, 240);
   const homeAppStyle = useMemo(
     () => ({ "--home-footer-effective": `${reservedFooterOffset}px` }),
     [reservedFooterOffset],
