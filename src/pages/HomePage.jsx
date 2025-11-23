@@ -227,9 +227,13 @@ function HomePage({
   }, []);
 
   const reservedFooterOffset = Math.max(footerHeight + 20, 240);
+  const scrollButtonOffset = Math.max((footerHeight || 0) + 16, 64);
   const homeAppStyle = useMemo(
-    () => ({ "--home-footer-effective": `${reservedFooterOffset}px` }),
-    [reservedFooterOffset],
+    () => ({
+      "--home-footer-effective": `${reservedFooterOffset}px`,
+      "--home-scroll-offset": `${scrollButtonOffset}px`,
+    }),
+    [reservedFooterOffset, scrollButtonOffset],
   );
 
   const featuredBooks = sortedBooks.slice(0, visibleCount);
@@ -244,7 +248,14 @@ function HomePage({
 
   return (
     <div className="home-app" style={homeAppStyle}>
-      <SiteHeader isLoggedIn={isLoggedIn} isAdmin={isAdmin} mode="home" />
+      <SiteHeader
+        isLoggedIn={isLoggedIn}
+        isAdmin={isAdmin}
+        mode="home"
+        showSearch
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+      />
 
       {/* HERO */}
       <section className="home-hero">
@@ -253,30 +264,6 @@ function HomePage({
             <div className="home-hero-text">
               <h1>MEET YOUR NEXT FAVORITE BOOK.</h1>
               <p className="home-hero-desc">What Will You Discover?</p>
-
-              <form
-                className="home-search-box"
-                onSubmit={(event) => event.preventDefault()}
-              >
-                <span className="home-search-icon">🔍</span>
-                <input
-                  type="text"
-                  value={searchValue}
-                  onChange={(event) => onSearchChange?.(event.target.value)}
-                  placeholder="Search by title or author"
-                  aria-label="Search book"
-                />
-                {searchValue && (
-                  <button
-                    type="button"
-                    className="home-clear-search"
-                    onClick={() => onSearchChange?.("")}
-                    aria-label="Clear search"
-                  >
-                    ×
-                  </button>
-                )}
-              </form>
             </div>
 
             <div className="home-hero-panel">

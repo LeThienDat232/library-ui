@@ -234,6 +234,12 @@
   color: #4b5563;
 }
 
+.cart-link {
+  color: inherit;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 .cart-status-success {
   color: #047857;
 }

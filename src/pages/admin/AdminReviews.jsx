@@ -9,14 +9,14 @@ import { useAuthToken } from "../../contexts/AuthContext.jsx";
 import useAdminApiError from "../../hooks/useAdminApiError.js";
 
 const statusOptions = [
-  { value: "pending", label: "Pending" },
+  { value: "", label: "All" },
   { value: "visible", label: "Visible" },
   { value: "hidden", label: "Hidden" },
 ];
 
 function AdminReviews() {
   const accessToken = useAuthToken();
-  const [filters, setFilters] = useState({ status: "pending", bookId: "", userId: "" });
+  const [filters, setFilters] = useState({ status: "", bookId: "", userId: "" });
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
@@ -25,6 +25,25 @@ function AdminReviews() {
     []
   );
   const handleAuthError = useAdminApiError(notifyAuthError);
+  const updateReviewStatus = useCallback(
+    (reviewId, nextStatus) => {
+      setReviews((prev) =>
+        prev.reduce((acc, review) => {
+          if (review.review_id !== reviewId) {
+            acc.push(review);
+            return acc;
+          }
+          const updatedReview = { ...review, status: nextStatus };
+          if (filters.status && filters.status !== nextStatus) {
+            return acc;
+          }
+          acc.push(updatedReview);
+          return acc;
+        }, []),
+      );
+    },
+    [filters.status],
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -69,7 +88,7 @@ function AdminReviews() {
     try {
       await adminHideReview(reviewId, accessToken);
       setFeedback({ type: "success", message: "Review hidden." });
-      setReviews((prev) => prev.filter((review) => review.review_id !== reviewId));
+      updateReviewStatus(reviewId, "hidden");
     } catch (error) {
       if (!handleAuthError(error)) {
         setFeedback({ type: "error", message: error.message });
@@ -80,8 +99,8 @@ function AdminReviews() {
   const handleShow = async (reviewId) => {
     try {
       await adminShowReview(reviewId, accessToken);
-      setFeedback({ type: "success", message: "Review approved." });
-      setReviews((prev) => prev.filter((review) => review.review_id !== reviewId));
+      setFeedback({ type: "success", message: "Review shown." });
+      updateReviewStatus(reviewId, "visible");
     } catch (error) {
       if (!handleAuthError(error)) {
         setFeedback({ type: "error", message: error.message });
@@ -192,7 +211,7 @@ function AdminReviews() {
                         onClick={() => handleShow(review.review_id)}
                         className={styles.primaryBtn}
                       >
-                        Approve
+                        Show
                       </button>
                       <button
                         type="button"

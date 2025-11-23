@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import styles from "./BookDetail.module.css";
 import {
   addBookToCart,
@@ -196,10 +196,7 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
       setCartSubmitting(true);
       setCartStatus({ type: "info", message: "Adding to cart…" });
       await addBookToCart(displayBook.book_id, 1, accessToken);
-      setCartStatus({
-        type: "success",
-        message: "Added to your cart. View it from the Cart tab.",
-      });
+      setCartStatus({ type: "success", message: "added" });
     } catch (error) {
       const unauthorized = error?.status === 401;
       const serverMessage =
@@ -287,13 +284,27 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
                     >
                       {cartSubmitting ? "Adding…" : "Add To Cart"}
                     </button>
-                    {cartStatus.message && (
+                    {cartStatus.type === "success" && (
                       <p
-                        className={`${styles['cart-status']} ${
-                          styles[`cart-status-${cartStatus.type}`] || ""
-                        }`}
-                        role={cartStatus.type === "error" ? "alert" : undefined}
+                        className={`${styles['cart-status']} ${styles['cart-status-success']}`}
                       >
+                        Added to your cart. View it from the{" "}
+                        <Link to="/cart" className={styles['cart-link']}>
+                          Cart tab
+                        </Link>
+                        .
+                      </p>
+                    )}
+                    {cartStatus.type === "error" && cartStatus.message && (
+                      <p
+                        className={`${styles['cart-status']} ${styles['cart-status-error']}`}
+                        role="alert"
+                      >
+                        {cartStatus.message}
+                      </p>
+                    )}
+                    {cartStatus.type === "info" && cartStatus.message && (
+                      <p className={`${styles['cart-status']} ${styles['cart-status-info']}`}>
                         {cartStatus.message}
                       </p>
                     )}

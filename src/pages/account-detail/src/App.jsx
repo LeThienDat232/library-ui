@@ -639,7 +639,6 @@ function CartPage({ onBooksReload }) {
     return {
       qtyValue,
       isItemBusy,
-      updateLabel: updatingItemId === book.id ? "Saving…" : "Update",
       removeLabel: removingItemId === book.id ? "Removing…" : "Remove",
     };
   };
@@ -650,67 +649,93 @@ function CartPage({ onBooksReload }) {
     }
   };
 
-  const handleAdjustQty = (itemId, delta) => {
-    setQtyDrafts((prev) => {
-      const relatedItem = cart.items.find((book) => book.id === itemId);
-      const fallbackQty = Number.isFinite(Number(relatedItem?.qty))
-        ? Number(relatedItem.qty)
-        : 1;
-      const parsedCurrent = Number.parseInt(prev[itemId], 10);
-      const currentQty = Number.isFinite(parsedCurrent)
-        ? parsedCurrent
-        : fallbackQty;
-      const nextQty = Math.max(0, currentQty + delta);
-      return { ...prev, [itemId]: String(nextQty) };
-    });
-  };
-
-  const handleEditItem = async (item) => {
-    if (!item?.bookId) {
-      setCartActionStatus({
-        type: "error",
-        message: "Missing book id for this item.",
-      });
-      return;
-    }
-    const draftValue = qtyDrafts[item.id];
-    if (draftValue === "") {
-      setCartActionStatus({
-        type: "error",
-        message: "Please enter a quantity before updating.",
-      });
-      return;
-    }
-    const fallbackQty = Number.isFinite(Number(item.qty))
+  const handleAdjustQty = (item, delta) => {
+    const fallbackQty = Number.isFinite(Number(item?.qty))
       ? Number(item.qty)
       : 1;
-    const nextQty = Number.parseInt(draftValue ?? fallbackQty ?? 1, 10);
-    if (!Number.isFinite(nextQty) || nextQty < 0) {
-      setCartActionStatus({
-        type: "error",
-        message: "Please enter a valid quantity (0 or more).",
-      });
+    const parsedCurrent = Number.parseInt(qtyDrafts[item.id], 10);
+    const currentQty = Number.isFinite(parsedCurrent) ? parsedCurrent : fallbackQty;
+    const nextQty = Math.max(0, currentQty + delta);
+    setQtyDrafts((prev) => ({ ...prev, [item.id]: String(nextQty) }));
+    commitQtyChange(item, String(nextQty));
+  };
+
+  const handleQtyBlur = (item) => {
+    const draftValue = qtyDrafts[item.id];
+    if (draftValue === "" || draftValue === undefined) {
       return;
     }
-    try {
-      setUpdatingItemId(item.id);
-      setCartActionStatus({ type: "info", message: "" });
-      await updateCartItem(item.bookId, nextQty, accessToken);
-      await loadCart();
-      setQtyDrafts((prev) => ({ ...prev, [item.id]: String(nextQty) }));
-      setCartActionStatus({
-        type: "info",
-        message: nextQty === 0 ? "Item removed from cart." : "Quantity updated.",
-      });
-    } catch (error) {
-      setCartActionStatus({
-        type: "error",
-        message: error.message ?? "Unable to update this item.",
-      });
-    } finally {
-      setUpdatingItemId(null);
+    if (Number.parseInt(draftValue, 10) === Number(item.qty)) {
+      return;
+    }
+    commitQtyChange(item, draftValue);
+  };
+
+  const handleQtyKeyDown = (item, event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const value = event.currentTarget.value;
+      if (value === "" || Number.parseInt(value, 10) === Number(item.qty)) {
+        return;
+      }
+      commitQtyChange(item, value);
     }
   };
+
+  const commitQtyChange = useCallback(
+    async (item, overrideValue) => {
+      if (!item?.bookId) {
+        setCartActionStatus({
+          type: "error",
+          message: "Missing book id for this item.",
+        });
+        return;
+      }
+      const fallbackQty = Number.isFinite(Number(item.qty))
+        ? Number(item.qty)
+        : 1;
+      const rawValue =
+        overrideValue !== undefined && overrideValue !== null
+          ? overrideValue
+          : qtyDrafts[item.id];
+      if (rawValue === "" || rawValue === undefined) {
+        setCartActionStatus({
+          type: "error",
+          message: "Please enter a quantity before updating.",
+        });
+        return;
+      }
+      const nextQty = Number.parseInt(rawValue ?? fallbackQty ?? 1, 10);
+      if (!Number.isFinite(nextQty) || nextQty < 0) {
+        setCartActionStatus({
+          type: "error",
+          message: "Please enter a valid quantity (0 or more).",
+        });
+        return;
+      }
+      try {
+        setUpdatingItemId(item.id);
+        setCartActionStatus({ type: "info", message: "" });
+        await updateCartItem(item.bookId, nextQty, accessToken);
+        await loadCart();
+        setQtyDrafts((prev) => ({ ...prev, [item.id]: String(nextQty) }));
+        setCartActionStatus({
+          type: "info",
+          message: nextQty === 0
+            ? "Item removed from cart."
+            : "Quantity updated.",
+        });
+      } catch (error) {
+        setCartActionStatus({
+          type: "error",
+          message: error.message ?? "Unable to update this item.",
+        });
+      } finally {
+        setUpdatingItemId(null);
+      }
+    },
+    [accessToken, loadCart, qtyDrafts],
+  );
 
   const handleRemoveItem = async (item) => {
     if (!item?.bookId) {
@@ -960,6 +985,8 @@ function CartPage({ onBooksReload }) {
                           onChange={(event) =>
                             handleQtyInputChange(book.id, event.target.value)
                           }
+                          onBlur={() => handleQtyBlur(book)}
+                          onKeyDown={(event) => handleQtyKeyDown(book, event)}
                           onFocus={() => handleSelectCartItem(book.id)}
                         />
                         <div className={styles["qty-stepper"]}>
@@ -969,7 +996,7 @@ function CartPage({ onBooksReload }) {
                             disabled={isItemBusy}
                             onClick={() => {
                               handleSelectCartItem(book.id);
-                              handleAdjustQty(book.id, 1);
+                              handleAdjustQty(book, 1);
                             }}
                           >
                             ▲
@@ -980,13 +1007,26 @@ function CartPage({ onBooksReload }) {
                             disabled={isItemBusy}
                             onClick={() => {
                               handleSelectCartItem(book.id);
-                              handleAdjustQty(book.id, -1);
+                              handleAdjustQty(book, -1);
                             }}
                           >
                             ▼
                           </button>
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        className={styles["qty-remove-btn"]}
+                        aria-label="Remove item from cart"
+                        disabled={isItemBusy}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleSelectCartItem(book.id);
+                          handleRemoveItem(book);
+                        }}
+                      >
+                        🗑
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1002,14 +1042,6 @@ function CartPage({ onBooksReload }) {
             </p>
           </div>
           <div className={styles["cart-button-row"]}>
-            <button
-              className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
-              type="button"
-              onClick={() => selectedItem && handleEditItem(selectedItem)}
-              disabled={!selectedItemUi || selectedItemUi.isItemBusy}
-            >
-              {selectedItemUi?.updateLabel ?? "Update"}
-            </button>
             <button
               className={`${styles["pill-btn"]} ${styles["pill-btn-outline"]}`}
               type="button"
