@@ -1,25 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./AdminUsers.module.css";
-import { adminListUsers, adminUpdateUser } from "../../api/admin";
+import {
+  adminDeleteUser,
+  adminListUsers,
+  adminUpdateUser,
+} from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
 import useAdminApiError from "../../hooks/useAdminApiError.js";
 
-const roleOptions = [
-  { value: "user", label: "Member" },
-  { value: "admin", label: "Admin" },
-];
-
-const statusFilterOptions = [
-  { value: "", label: "All statuses" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "disabled", label: "Disabled" },
-  { value: "suspended", label: "Suspended" },
-];
-
-const roleFilterOptions = [{ value: "", label: "All roles" }, ...roleOptions];
-
-const initialFilters = { search: "", status: "", role: "" };
+const initialFilters = { search: "" };
 
 function formatDate(value) {
   if (!value) return "—";
@@ -158,12 +147,6 @@ function AdminUsers() {
         if (filters.search.trim()) {
           params.search = filters.search.trim();
         }
-        if (filters.role) {
-          params.role = filters.role;
-        }
-        if (filters.status) {
-          params.status = filters.status;
-        }
         const payload = await adminListUsers(params, accessToken);
         if (!ignore) {
           setUsers(payload.rows || []);
@@ -202,34 +185,41 @@ function AdminUsers() {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  const buildStatusUpdatePayload = useCallback((isActivating) => {
-    const primaryStatus = isActivating ? "active" : "inactive";
-    const adminNote = "Changed from admin console";
-    return {
-      status: primaryStatus,
-      status_reason: adminNote,
-      disabled: !isActivating,
-      active: isActivating,
-      is_active: isActivating,
-    };
-  }, []);
-
-  const handleRoleChange = async (user, nextRole) => {
-    if (!user || !nextRole || user.role === nextRole) return;
+  const handleResetPassword = async (user) => {
+    if (!user) return;
+    if (typeof window === "undefined") {
+      setFeedback({
+        type: "error",
+        message: "Reset password is not available in this environment.",
+      });
+      return;
+    }
+    const rawPassword = window.prompt(
+      `Enter a new password for ${user.fullName} (at least 6 characters):`,
+      ""
+    );
+    if (rawPassword === null) {
+      return;
+    }
+    const trimmedPassword = rawPassword.trim();
+    if (trimmedPassword.length < 6) {
+      setFeedback({
+        type: "error",
+        message: "Password must be at least 6 characters long.",
+      });
+      return;
+    }
     try {
       setUpdatingUserId(user.id);
       await adminUpdateUser(
         user.id,
-        {
-          role: nextRole,
-          role_name: nextRole,
-          roleName: nextRole,
-          user_role: nextRole,
-        },
+        { password: trimmedPassword },
         accessToken
       );
-      setFeedback({ type: "success", message: "Role updated." });
-      setRefreshKey((prev) => prev + 1);
+      setFeedback({
+        type: "success",
+        message: "Password reset successfully.",
+      });
     } catch (error) {
       if (!handleAuthError(error)) {
         setFeedback({ type: "error", message: error.message });
@@ -239,17 +229,20 @@ function AdminUsers() {
     }
   };
 
-  const handleToggleStatus = async (user) => {
+  const handleDeleteUser = async (user) => {
     if (!user) return;
-    const enabling = !user.isActive;
-    const payload = buildStatusUpdatePayload(enabling);
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `Delete ${user.fullName || user.email}? This cannot be undone.`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
     try {
       setUpdatingUserId(user.id);
-      await adminUpdateUser(user.id, payload, accessToken);
-      setFeedback({
-        type: "success",
-        message: enabling ? "User activated." : "User disabled.",
-      });
+      await adminDeleteUser(user.id, accessToken);
+      setFeedback({ type: "success", message: "User deleted." });
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       if (!handleAuthError(error)) {
@@ -297,26 +290,6 @@ function AdminUsers() {
             placeholder="Name, email, or phone"
           />
         </label>
-        <label>
-          <span>Status</span>
-          <select name="status" value={filters.status} onChange={handleFilterChange}>
-            {statusFilterOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Role</span>
-          <select name="role" value={filters.role} onChange={handleFilterChange}>
-            {roleFilterOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       <div className={styles.metricsRow}>
@@ -363,18 +336,9 @@ function AdminUsers() {
                   {user.phone && <p className={styles.subText}>{user.phone}</p>}
                 </td>
                 <td>
-                  <select
-                    className={styles.roleSelect}
-                    value={user.role}
-                    disabled={updatingUserId === user.id}
-                    onChange={(event) => handleRoleChange(user, event.target.value)}
-                  >
-                    {roleOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <span className={styles.roleTag}>
+                    {user.role === "admin" ? "Admin" : "Member"}
+                  </span>
                 </td>
                 <td>{user.loansCount}</td>
                 <td>
@@ -389,18 +353,24 @@ function AdminUsers() {
                 <td>{formatDate(user.joinedAt)}</td>
                 <td>{formatDate(user.lastActive)}</td>
                 <td>
-                  <button
-                    type="button"
-                    className={
-                      user.isActive
-                        ? styles.dangerBtn
-                        : `${styles.secondaryBtn} ${styles.wideBtn}`
-                    }
-                    onClick={() => handleToggleStatus(user)}
-                    disabled={updatingUserId === user.id}
-                  >
-                    {user.isActive ? "Disable" : "Activate"}
-                  </button>
+                  <div className={styles.actionsColumn}>
+                    <button
+                      type="button"
+                      className={`${styles.secondaryBtn} ${styles.wideBtn}`}
+                      onClick={() => handleResetPassword(user)}
+                      disabled={updatingUserId === user.id}
+                    >
+                      Reset password
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.dangerBtn}
+                      onClick={() => handleDeleteUser(user)}
+                      disabled={updatingUserId === user.id}
+                    >
+                      Delete user
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

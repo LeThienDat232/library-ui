@@ -338,3 +338,11 @@ export async function adminUpdateUser(userId, payload, accessToken) {
   });
   return parseResponse(response, "Unable to update user");
 }
+
+export async function adminDeleteUser(userId, accessToken) {
+  const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+    method: "DELETE",
+    headers: authHeaders(accessToken),
+  });
+  return parseResponse(response, "Unable to delete user");
+}

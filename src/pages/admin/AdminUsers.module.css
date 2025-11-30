@@ -125,11 +125,16 @@
   color: #94a3b8;
 }
 
-.roleSelect {
-  border-radius: 8px;
-  border: 1px solid #cbd5f5;
-  padding: 6px 8px;
-  min-width: 140px;
+.roleTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: #e0e7ff;
+  color: #312e81;
 }
 
 .statusPill {
@@ -175,6 +180,13 @@
 
 .wideBtn {
   min-width: 120px;
+}
+
+.actionsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .emptyCell {
