@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./AccountSettings.module.css";
+import { API_BASE_URL } from "../../api/config.js";
 
-const PROFILE_ENDPOINT = "https://library-api-dicz.onrender.com/auth/profile";
-const PASSWORD_ENDPOINT = "https://library-api-dicz.onrender.com/auth/password";
+const PROFILE_ENDPOINT = `${API_BASE_URL}/auth/profile`;
+const PASSWORD_ENDPOINT = `${API_BASE_URL}/auth/password`;
 
 const extractNameParts = (profile) => {
   if (!profile || typeof profile !== "object") {

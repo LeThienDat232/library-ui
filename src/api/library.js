@@ -1,6 +1,4 @@
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ?? "https://library-api-dicz.onrender.com"
-).replace(/\/$/, "");
+import { API_BASE_URL } from "./config.js";
 
 function authHeaders(accessToken, extra = {}) {
   if (!accessToken) {

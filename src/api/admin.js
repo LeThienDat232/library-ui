@@ -1,6 +1,4 @@
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ?? "https://library-api-dicz.onrender.com"
-).replace(/\/$/, "");
+import { API_BASE_URL } from "./config.js";
 
 function authHeaders(accessToken, extra = {}) {
   if (!accessToken) {
@@ -96,18 +94,51 @@ function normalizeListPayload(payload) {
   if (!payload) {
     return { rows: [], count: 0 };
   }
+
+  const pickRows = (source) => {
+    if (!source) return null;
+    if (Array.isArray(source)) return source;
+    if (Array.isArray(source.rows)) return source.rows;
+    if (Array.isArray(source.items)) return source.items;
+    if (Array.isArray(source.users)) return source.users;
+    if (Array.isArray(source.accounts)) return source.accounts;
+    if (Array.isArray(source.results)) return source.results;
+    return null;
+  };
+
   let rows = [];
   if (Array.isArray(payload)) {
     rows = payload;
-  } else if (Array.isArray(payload.rows)) {
-    rows = payload.rows;
-  } else if (Array.isArray(payload.items)) {
-    rows = payload.items;
+  } else {
+    rows = pickRows(payload) ?? pickRows(payload.data) ?? pickRows(payload.meta) ?? [];
   }
-  return {
-    rows,
-    count: payload.count ?? payload.total ?? rows.length,
+
+  const pickNumber = (value) => {
+    if (value === undefined || value === null || value === "") {
+      return null;
+    }
+    const numeric = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
   };
+
+  const count =
+    pickNumber(payload.count) ??
+    pickNumber(payload.total) ??
+    pickNumber(payload.total_count) ??
+    pickNumber(payload.total_items) ??
+    pickNumber(payload.totalItems) ??
+    pickNumber(payload.total_users) ??
+    pickNumber(payload.totalUsers) ??
+    pickNumber(payload.users_count) ??
+    pickNumber(payload.meta?.count) ??
+    pickNumber(payload.meta?.total) ??
+    pickNumber(payload.pagination?.count) ??
+    pickNumber(payload.pagination?.total) ??
+    pickNumber(payload.data?.count) ??
+    pickNumber(payload.data?.total) ??
+    rows.length;
+
+  return { rows, count };
 }
 
 export async function adminScan(tokenString, accessToken) {

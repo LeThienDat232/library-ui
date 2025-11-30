@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import webshelfLogo from './assets/webshelf-logo.png'
 import styles from './App.module.css'
+import { API_BASE_URL } from '../../../api/config.js'
 
-const REGISTER_ENDPOINT = 'https://library-api-dicz.onrender.com/auth/register'
+const REGISTER_ENDPOINT = `${API_BASE_URL}/auth/register`
 
 function RegisterPage() {
   const navigate = useNavigate()

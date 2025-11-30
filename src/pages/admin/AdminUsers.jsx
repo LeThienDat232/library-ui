@@ -5,8 +5,7 @@ import { useAuthToken } from "../../contexts/AuthContext.jsx";
 import useAdminApiError from "../../hooks/useAdminApiError.js";
 
 const roleOptions = [
-  { value: "member", label: "Member" },
-  { value: "librarian", label: "Librarian" },
+  { value: "user", label: "Member" },
   { value: "admin", label: "Admin" },
 ];
 
@@ -39,8 +38,10 @@ function normalizeUserRow(raw) {
   if (!raw) return null;
   const id =
     raw.user_id ??
+    raw.userId ??
     raw.id ??
     raw.account_id ??
+    raw.accountId ??
     raw.email ??
     raw.username ??
     null;
@@ -56,6 +57,7 @@ function normalizeUserRow(raw) {
     raw.phone_number ||
     raw.phoneNumber ||
     raw.contact_number ||
+    raw.contactNumber ||
     "";
   const roleValue =
     raw.role ||
@@ -63,10 +65,17 @@ function normalizeUserRow(raw) {
     raw.roleName ||
     raw.type ||
     raw.user_role ||
-    "member";
-  const role = roleValue.toString().toLowerCase();
+    raw.userRole ||
+    "user";
+  const roleKey = roleValue.toString().toLowerCase();
+  const role =
+    roleKey === "member" || roleKey === "reader" || roleKey === "borrower"
+      ? "user"
+      : roleKey;
   const statusValue =
     raw.status ||
+    raw.account_status ||
+    raw.accountStatus ||
     (raw.disabled || raw.is_disabled
       ? "disabled"
       : raw.active === false
@@ -79,20 +88,34 @@ function normalizeUserRow(raw) {
   const isActive = !/inactive|disabled|blocked|suspended/.test(statusKey);
   const loans =
     raw.active_loans ??
+    raw.activeLoans ??
     raw.loan_count ??
+    raw.loanCount ??
     raw.loans_count ??
+    raw.loansCount ??
     raw.borrowed_books ??
+    raw.open_loans ??
+    raw.openLoans ??
     0;
   const joinedAt =
     raw.created_at ||
     raw.createdAt ||
     raw.joined_at ||
     raw.joinedAt ||
+    raw.registration_date ||
+    raw.registered_at ||
+    raw.registeredAt ||
     null;
   const lastActive =
     raw.last_login ||
+    raw.lastLogin ||
     raw.last_active ||
+    raw.lastActive ||
     raw.lastActivity ||
+    raw.last_seen ||
+    raw.lastSeen ||
+    raw.activity_at ||
+    raw.activityAt ||
     raw.updated_at ||
     raw.updatedAt ||
     null;
@@ -170,9 +193,7 @@ function AdminUsers() {
   const stats = useMemo(() => {
     const total = normalizedUsers.length;
     const active = normalizedUsers.filter((user) => user.isActive).length;
-    const admins = normalizedUsers.filter(
-      (user) => user.role === "admin" || user.role === "librarian"
-    ).length;
+    const admins = normalizedUsers.filter((user) => user.role === "admin").length;
     return { total, active, inactive: total - active, admins };
   }, [normalizedUsers]);
 
@@ -180,6 +201,18 @@ function AdminUsers() {
     const { name, value } = event.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
+
+  const buildStatusUpdatePayload = useCallback((isActivating) => {
+    const primaryStatus = isActivating ? "active" : "inactive";
+    const adminNote = "Changed from admin console";
+    return {
+      status: primaryStatus,
+      status_reason: adminNote,
+      disabled: !isActivating,
+      active: isActivating,
+      is_active: isActivating,
+    };
+  }, []);
 
   const handleRoleChange = async (user, nextRole) => {
     if (!user || !nextRole || user.role === nextRole) return;
@@ -209,9 +242,7 @@ function AdminUsers() {
   const handleToggleStatus = async (user) => {
     if (!user) return;
     const enabling = !user.isActive;
-    const payload = enabling
-      ? { status: "active", disabled: false, active: true, is_active: true }
-      : { status: "disabled", disabled: true, active: false, is_active: false };
+    const payload = buildStatusUpdatePayload(enabling);
     try {
       setUpdatingUserId(user.id);
       await adminUpdateUser(user.id, payload, accessToken);

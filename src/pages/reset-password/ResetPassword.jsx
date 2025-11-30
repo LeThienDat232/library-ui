@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import styles from "./ResetPassword.module.css";
 import webshelfLogo from "../../assets/webshelf-logo.png";
+import { API_BASE_URL } from "../../api/config.js";
 
-const REQUEST_ENDPOINT = "https://library-api-dicz.onrender.com/auth/request-reset";
-const RESET_ENDPOINT = "https://library-api-dicz.onrender.com/auth/reset";
+const REQUEST_ENDPOINT = `${API_BASE_URL}/auth/request-reset`;
+const RESET_ENDPOINT = `${API_BASE_URL}/auth/reset`;
 
 function ResetPassword() {
   const navigate = useNavigate();

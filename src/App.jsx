@@ -18,6 +18,7 @@ import AdminBooks from "./pages/admin/AdminBooks.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import BookDetailRoute from "./pages/book-detail/BookDetailRoute.jsx";
 import { AuthContext, isAdminUser } from "./contexts/AuthContext.jsx";
+import { API_BASE_URL } from "./api/config.js";
 
 const AUTH_STORAGE_KEY = "webshelf-auth";
 
@@ -69,9 +70,7 @@ function App() {
       if (searchValue.trim()) {
         params.set("title", searchValue.trim());
       }
-      const response = await fetch(
-        `https://library-api-dicz.onrender.com/books?${params.toString()}`
-      );
+      const response = await fetch(`${API_BASE_URL}/books?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`Unable to load catalog (${response.status})`);
       }

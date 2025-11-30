@@ -2,10 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import styles from './App.module.css'
 import webshelfLogo from './assets/webshelf-logo.png'
+import { API_BASE_URL } from '../../../api/config.js'
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ?? 'https://library-api-dicz.onrender.com'
-).replace(/\/$/, '');
 const LOGIN_ENDPOINT = `${API_BASE_URL}/auth/login`;
 
 function LoginPage({ onLogin }) {
