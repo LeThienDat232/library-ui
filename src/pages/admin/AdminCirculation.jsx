@@ -26,6 +26,12 @@ function AdminCirculation() {
   const readerRef = useRef(null);
   const trackRef = useRef(null);
   const [isMirrored, setMirrored] = useState(false);
+  const [imagePasteState, setImagePasteState] = useState({
+    preview: "",
+    message: "",
+    type: "info",
+    loading: false,
+  });
   const accessToken = useAuthToken();
   const handleAuthError = useAdminApiError(
     useCallback(
@@ -333,6 +339,94 @@ function AdminCirculation() {
     [loan, accessToken, performScan, lastToken, handleAuthError]
   );
 
+  const decodeImageFile = useCallback(
+    async (file) => {
+      setImagePasteState((prev) => ({
+        ...prev,
+        loading: true,
+        message: "Reading QR image…",
+        type: "info",
+      }));
+      try {
+        const previewDataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () =>
+            resolve(typeof reader.result === "string" ? reader.result : "");
+          reader.onerror = () =>
+            reject(new Error("Unable to preview the pasted image."));
+          reader.readAsDataURL(file);
+        });
+        if (previewDataUrl) {
+          setImagePasteState((prev) => ({ ...prev, preview: previewDataUrl }));
+        }
+      } catch {
+        // preview is optional; ignore errors
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      try {
+        const reader = new BrowserMultiFormatReader();
+        const result = await reader.decodeFromImageUrl(objectUrl);
+        const text = result.getText?.() ?? "";
+        if (!text) {
+          throw new Error("No QR token detected in the pasted image.");
+        }
+        setImagePasteState((prev) => ({
+          ...prev,
+          message: "QR image recognized. Scanning…",
+          type: "info",
+        }));
+        setTokenInput(text);
+        await performScan(text);
+        setImagePasteState((prev) => ({
+          ...prev,
+          message: "QR image scanned successfully.",
+          type: "success",
+        }));
+      } catch (error) {
+        const message =
+          error?.message ?? "Unable to decode the pasted QR image.";
+        setImagePasteState((prev) => ({
+          ...prev,
+          message,
+          type: "error",
+        }));
+      } finally {
+        setImagePasteState((prev) => ({ ...prev, loading: false }));
+        URL.revokeObjectURL(objectUrl);
+      }
+    },
+    [performScan, setTokenInput]
+  );
+
+  const handlePaste = useCallback(
+    async (event) => {
+      if (!event?.clipboardData) return;
+      const items = Array.from(event.clipboardData.items || []);
+      const imageItem = items.find((item) => item.type?.startsWith("image/"));
+      if (!imageItem) {
+        setImagePasteState((prev) => ({
+          ...prev,
+          message: "Clipboard does not contain an image to decode.",
+          type: "error",
+        }));
+        return;
+      }
+      const file = imageItem.getAsFile();
+      if (!file) {
+        setImagePasteState((prev) => ({
+          ...prev,
+          message: "Unable to read the pasted image.",
+          type: "error",
+        }));
+        return;
+      }
+      event.preventDefault();
+      await decodeImageFile(file);
+    },
+    [decodeImageFile]
+  );
+
   const status = useMemo(() => {
     if (!loan) return null;
     const raw = (
@@ -417,6 +511,41 @@ function AdminCirculation() {
           </button>
         </div>
       </form>
+
+      <section className={styles.pasteSection}>
+        <h3>Paste a QR image</h3>
+        <div
+          className={styles.pasteZone}
+          tabIndex={0}
+          onPaste={handlePaste}
+          aria-busy={imagePasteState.loading}
+        >
+          <p className={styles.pasteHint}>
+            Click here and press Ctrl+V to paste a QR screenshot from
+            your clipboard.
+          </p>
+          {imagePasteState.preview && (
+            <img
+              src={imagePasteState.preview}
+              alt="Pasted QR preview"
+              className={styles.pastePreview}
+            />
+          )}
+          {imagePasteState.message && (
+            <p
+              className={`${styles.pasteMessage} ${
+                imagePasteState.type === "error"
+                  ? styles.pasteMessageError
+                  : imagePasteState.type === "success"
+                    ? styles.pasteMessageSuccess
+                    : ""
+              }`}
+            >
+              {imagePasteState.message}
+            </p>
+          )}
+        </div>
+      </section>
 
       {actionState.message && (
         <p
