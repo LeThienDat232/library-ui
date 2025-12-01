@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SiteHeader from "../components/SiteHeader.jsx";
 import SiteFooter from "../components/SiteFooter.jsx";
@@ -26,26 +26,11 @@ const clampRatingValue = (value) => {
   return value;
 };
 
-//Looks at several possible rating field name, uses the first one that’s a valid number.
-const getBookRatingValue = (book) => {
-  if (!book || typeof book !== "object") {
-    return 0;
-  }
-  const candidates = [
-    book.avg_rating,
-    book.average_rating,
-    book.averageRating,
-    book.rating,
-  ];
-  for (const candidate of candidates) {
-    const numeric = Number(candidate);
-    if (Number.isFinite(numeric)) {
-      return clampRatingValue(numeric);
-    }
-  }
-  return 0;
-};
+//gets the average rating of a book, or 0 if not available.
+const getBookRatingValue = (book) =>
+  clampRatingValue(Number(book.avg_rating || 0));
 
+//renders stars based on the rating value, filling stars for the rating
 const renderRatingStars = (id, ratingValue) => {
   const safeRating = clampRatingValue(ratingValue);
   const filledStars = Math.round(safeRating);
@@ -70,25 +55,54 @@ function HomePage({
   onBookSelect,
 }) {
   const navigate = useNavigate();
-  const [activeGenre, setActiveGenre] = useState("All");
-  const [recommendationFilter, setRecommendationFilter] = useState("popular");
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const [footerHeight, setFooterHeight] = useState(0);
+  const [activeGenre, setActiveGenre] = useState("All"); //which genre button is currently selected
+  const [recommendationFilter, setRecommendationFilter] = useState("popular"); //one of "popular", "top-rated", "new-arrivals", "available"
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE); //how many books from the list are currently shown.
+  const [showScrollTop, setShowScrollTop] = useState(false); //whether to show the “Back to top” button.
+  const [footerHeight, setFooterHeight] = useState(0); //used later to calculate spacing for footer + scroll button.
   const footerRef = useRef(null);
+  const resetVisibleCount = useCallback(() => {
+    setVisibleCount(INITIAL_VISIBLE);
+  }, []);
+  const handleSearchChange = useCallback(
+    (value) => {
+      resetVisibleCount();
+      if (typeof onSearchChange === "function") {
+        onSearchChange(value);
+      }
+    },
+    [onSearchChange, resetVisibleCount],
+  );
+  const handleGenreSelect = useCallback(
+    (genre) => {
+      setActiveGenre(genre);
+      resetVisibleCount();
+    },
+    [resetVisibleCount],
+  );
+  const handleRecommendationSelect = useCallback(
+    (filterId) => {
+      setRecommendationFilter(filterId);
+      resetVisibleCount();
+    },
+    [resetVisibleCount],
+  );
 
+  //function to handle book selection and navigation
   const handleBookSelection = (book) => {
     if (onBookSelect) {
-      onBookSelect(book);
+      onBookSelect(book);//App can store the selected book.
     }
     navigate("/book");
   };
 
+  //ensure books is always an array to avoid errors
   const safeBooks = useMemo(
     () => (Array.isArray(books) ? books : []),
     [books],
   );
 
+  //generate genre options based on available books
   const genreOptions = useMemo(() => {
     const genreMap = new Map();
     safeBooks.forEach((book) =>
@@ -103,6 +117,7 @@ function HomePage({
       .slice(0, 13);
   }, [safeBooks]);
 
+  //generate a list of trending books based on review count
   const trendingBooks = useMemo(() => {
     const list = [...safeBooks].sort(
       (a, b) => (b.review_count ?? 0) - (a.review_count ?? 0),
@@ -110,6 +125,7 @@ function HomePage({
     return list.slice(0, 12);
   }, [safeBooks]);
 
+  //filter books based on search value and active genre
   const filteredBooks = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
     return safeBooks.filter((book) => {
@@ -125,14 +141,14 @@ function HomePage({
     });
   }, [safeBooks, searchValue, activeGenre]);
 
+  //sort filtered books based on recommendation filter
   const sortedBooks = useMemo(() => {
     const list = [...filteredBooks];
     switch (recommendationFilter) {
       case "top-rated":
-        list.sort(
-          (a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0),
-        );
+        list.sort((a, b) => getBookRatingValue(b) - getBookRatingValue(a));
         break;
+
       case "new-arrivals":
         list.sort(
           (a, b) =>
@@ -155,16 +171,6 @@ function HomePage({
     }
     return list;
   }, [filteredBooks, recommendationFilter]);
-
-  useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE);
-  }, [searchValue, activeGenre, recommendationFilter]);
-
-  useEffect(() => {
-    setVisibleCount((prev) =>
-      Math.min(prev, Math.max(sortedBooks.length, INITIAL_VISIBLE)),
-    );
-  }, [sortedBooks.length]);
 
   useEffect(() => {
     let lastScroll = 0;
@@ -202,7 +208,7 @@ function HomePage({
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [sortedBooks.length]);
+  }, [sortedBooks.length, setVisibleCount]);
 
   useEffect(() => {
     const node = footerRef.current;
@@ -259,7 +265,7 @@ function HomePage({
         mode="home"
         showSearch
         searchValue={searchValue}
-        onSearchChange={onSearchChange}
+        onSearchChange={handleSearchChange}
       />
 
       {/* HERO */}
@@ -357,7 +363,7 @@ function HomePage({
                   className={`home-nav-pill ${activeGenre === "All" ? "home-nav-pill-active" : ""
                     }`}
                   aria-pressed={activeGenre === "All"}
-                  onClick={() => setActiveGenre("All")}
+                  onClick={() => handleGenreSelect("All")}
                 >
                   All Genres
                 </button>
@@ -368,7 +374,7 @@ function HomePage({
                     className={`home-nav-pill ${activeGenre === genre.name ? "home-nav-pill-active" : ""
                       }`}
                     aria-pressed={activeGenre === genre.name}
-                    onClick={() => setActiveGenre(genre.name)}
+                    onClick={() => handleGenreSelect(genre.name)}
                   >
                     {genre.name}
                     <span className="home-pill-count">{genre.count}</span>
@@ -389,7 +395,7 @@ function HomePage({
                         : ""
                       }`}
                     aria-pressed={recommendationFilter === option.id}
-                    onClick={() => setRecommendationFilter(option.id)}
+                    onClick={() => handleRecommendationSelect(option.id)}
                   >
                     {option.label}
                   </button>

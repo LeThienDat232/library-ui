@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "https://98.92.25.69";
+const DEFAULT_API_BASE_URL = "https://api.webshelf.io.vn";
 
 export const API_BASE_URL = (
   import.meta.env.VITE_API_URL ?? DEFAULT_API_BASE_URL
