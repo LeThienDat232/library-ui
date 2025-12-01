@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react"; // React hooks to manage state, side effects, memoized functions/values.
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"; //BrowserRouter enables routing by URL. Routes + Route define which component to show for each path. Navigate redirects 
 import "./App.css";
 import CartPage from "./pages/account-detail/src/App.jsx";
 import AccountSettings from "./pages/account-settings/AccountSettings.jsx";
@@ -17,11 +17,16 @@ import AdminReviews from "./pages/admin/AdminReviews.jsx";
 import AdminBooks from "./pages/admin/AdminBooks.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import BookDetailRoute from "./pages/book-detail/BookDetailRoute.jsx";
-import { AuthContext, isAdminUser } from "./contexts/AuthContext.jsx";
-import { API_BASE_URL } from "./api/config.js";
+import { AuthContext, isAdminUser } from "./contexts/AuthContext.jsx"; //auth system (global user state + helper).
+import { API_BASE_URL } from "./api/config.js"; //base URL for talking to backend (/books, /auth, etc.).
 
-const AUTH_STORAGE_KEY = "webshelf-auth";
+const AUTH_STORAGE_KEY = "webshelf-auth"; //key
 
+/*Returns a consistent object so the app can use
+session.accessToken
+session.refreshToken
+session.user
+*/
 const normalizeAuthSession = (rawSession) => {
   if (!rawSession || typeof rawSession !== "object") {
     return null;
@@ -45,6 +50,7 @@ const normalizeAuthSession = (rawSession) => {
   };
 };
 
+//stores the current login session (tokens + user info).
 function App() {
   const [authSession, setAuthSession] = useState(() => {
     try {
@@ -54,40 +60,47 @@ function App() {
       return null;
     }
   });
-  const [selectedBook, setSelectedBook] = useState(null);
-  const [books, setBooks] = useState([]);
-  const [booksLoading, setBooksLoading] = useState(false);
-  const [booksError, setBooksError] = useState("");
-  const [searchValue, setSearchValue] = useState("");
-  const accessToken = authSession?.accessToken ?? authSession?.token ?? "";
-  const isLoggedIn = Boolean(accessToken || authSession);
+
+  const [selectedBook, setSelectedBook] = useState(null); //currently chosen book to view details.
+  const [books, setBooks] = useState([]); //list all books
+  const [booksLoading, setBooksLoading] = useState(false); //check if books are loaded
+  const [booksError, setBooksError] = useState(""); //error message 
+  const [searchValue, setSearchValue] = useState(""); //what the user typed in the search bar
+
+  const accessToken = authSession?.accessToken ?? authSession?.token ?? ""; //pulls token from session
+  const isLoggedIn = Boolean(accessToken || authSession); //checks if we have token
+
 
   const loadBooks = useCallback(async () => {
     try {
       setBooksLoading(true);
       setBooksError("");
-      const params = new URLSearchParams({ limit: "25000" });
+      const params = new URLSearchParams({ limit: "25000" }); //limit to 25,000
       if (searchValue.trim()) {
-        params.set("title", searchValue.trim());
+        params.set("title", searchValue.trim()); //search by title
       }
+      //call backend API
       const response = await fetch(`${API_BASE_URL}/books?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`Unable to load catalog (${response.status})`);
       }
+
       const payload = await response.json();
       setBooks(payload.items ?? []);
     } catch (error) {
       setBooksError(error.message ?? "Failed to reach library API");
       setBooks([]);
     } finally {
-      setBooksLoading(false);
+      setBooksLoading(false); //recreate this function only when searchValue changes.
     }
   }, [searchValue]);
 
+  //if searchValue changes, this effect runs and refetches the books
   useEffect(() => {
     loadBooks();
   }, [loadBooks]);
 
+  // Takes the books array and builds a Map from id → book. Handles both: book.book_id or book.id Also stores both number and string versions
   const catalogById = useMemo(() => {
     const map = new Map();
     books.forEach((book) => {
@@ -102,6 +115,7 @@ function App() {
     return map;
   }, [books]);
 
+//login function: saves session to state and localStorage
   const handleLogin = useCallback((sessionPayload) => {
     const payload = normalizeAuthSession(sessionPayload);
     setAuthSession(payload);
