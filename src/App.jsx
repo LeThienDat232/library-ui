@@ -115,7 +115,7 @@ function App() {
     return map;
   }, [books]);
 
-//login function: saves session to state and localStorage
+  //login function: saves session to state and localStorage
   const handleLogin = useCallback((sessionPayload) => {
     const payload = normalizeAuthSession(sessionPayload);
     setAuthSession(payload);
@@ -126,11 +126,13 @@ function App() {
     }
   }, []);
 
+  //Clears auth state, clears localStorage, user becomes logged-out.
   const handleLogout = useCallback(() => {
     setAuthSession(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   }, []);
 
+  //If no book passed, clear the selection, else, try to get the freshest version from catalogById using book.book_id.
   const handleBookSelect = (book) => {
     if (!book) {
       setSelectedBook(null);
@@ -140,12 +142,12 @@ function App() {
     setSelectedBook(bookWithLatestData);
   };
 
-  const authUser = authSession?.user ?? null;
-  const isAdmin = isAdminUser(authUser);
+  const authUser = authSession?.user ?? null; //get user profile from session
+  const isAdmin = isAdminUser(authUser); //check if user is admin
   const authValue = useMemo(
     () => ({
-      session: authSession,
-      user: authUser,
+      session: authSession, //full session object
+      user: authUser, //user profile
       accessToken,
       isAuthenticated: Boolean(accessToken),
       isAdmin,
@@ -156,7 +158,7 @@ function App() {
   );
 
   return (
-    <AuthContext.Provider value={authValue}>
+    <AuthContext.Provider value={authValue}> 
       <BrowserRouter>
         <Routes>
           <Route
@@ -174,7 +176,7 @@ function App() {
               />
             }
           />
-          <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} />} /> 
           <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/book"
@@ -189,6 +191,7 @@ function App() {
             }
           />
           <Route
+            //Two ways to get to detail page: /book or /book/:bookId
             path="/book/:bookId"
             element={
               <BookDetailRoute
@@ -201,6 +204,7 @@ function App() {
             }
           />
           <Route
+            //if logged in, show cart page, else redirect to login
             path="/cart"
             element={
               isLoggedIn ? <CartPage onBooksReload={loadBooks} /> : <Navigate to="/login" replace />
@@ -220,6 +224,7 @@ function App() {
             }
           />
           <Route
+            //admin route is protected by <RequireAdmin>:RequireAdmin reads AuthContext, checks isAdmin. If not admin, redirect out, else renders AdminLayout
             path="/admin"
             element={
               <RequireAdmin>

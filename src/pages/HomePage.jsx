@@ -3,18 +3,22 @@ import { useNavigate } from "react-router-dom";
 import SiteHeader from "../components/SiteHeader.jsx";
 import SiteFooter from "../components/SiteFooter.jsx";
 
+//default image if a book has no cover
 const FALLBACK_COVER =
   "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=400&q=60";
 
+//sidebar filter choices
 const RECOMMENDATION_OPTIONS = [
   { id: "popular", label: "Trending" },
   { id: "top-rated", label: "Top Rated" },
   { id: "new-arrivals", label: "New Arrivals" },
   { id: "available", label: "Available Now" },
 ];
-const INITIAL_VISIBLE = 20;
-const LOAD_MORE_STEP = 10;
 
+const INITIAL_VISIBLE = 20; //number of books shown at first.
+const LOAD_MORE_STEP = 10; //how many extra books to show when scrolling down (for infinite scroll).
+
+//makes sure rating is between 0 and 5 and numeric.
 const clampRatingValue = (value) => {
   if (!Number.isFinite(value)) return 0;
   if (value < 0) return 0;
@@ -22,6 +26,7 @@ const clampRatingValue = (value) => {
   return value;
 };
 
+//Looks at several possible rating field name, uses the first one that’s a valid number.
 const getBookRatingValue = (book) => {
   if (!book || typeof book !== "object") {
     return 0;
