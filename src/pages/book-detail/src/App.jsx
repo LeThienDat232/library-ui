@@ -31,19 +31,19 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const displayBook = book ?? fallbackBook;
   const genres = displayBook.genres ?? [];
   const primaryGenre = genres[0]?.name;
-  const ratingSource =
+  const baseRatingSource =
     displayBook.avg_rating ??
     displayBook.average_rating ??
     displayBook.averageRating ??
     displayBook.rating ??
     0;
-  const ratingValue = clampRatingValue(Number(ratingSource) || 0);
-  const reviewCount = displayBook.review_count ?? 0;
+  const baseRatingValue = clampRatingValue(Number(baseRatingSource) || 0);
+  const baseReviewCount = displayBook.review_count ?? 0;
   const availableCount = displayBook.inventory?.available ?? 0;
   const totalCount = displayBook.inventory?.total ?? 0;
-  const ratingBreakdown = displayBook.rating_breakdown ?? {};
-  const totalBreakdownVotes = ratingLevels.reduce(
-    (sum, level) => sum + Number(ratingBreakdown[level] ?? 0),
+  const baseRatingBreakdown = displayBook.rating_breakdown ?? {};
+  const baseTotalBreakdownVotes = ratingLevels.reduce(
+    (sum, level) => sum + Number(baseRatingBreakdown[level] ?? 0),
     0
   );
   const [reviews, setReviews] = useState([]);
@@ -65,6 +65,45 @@ function BookDetailPage({ book, books = [], onBookSelect, authSession }) {
   const hasSession = Boolean(
     accessToken || session?.userId || session?.user?.user_id
   );
+  const reviewSummary = useMemo(() => {
+    if (reviews.length > 0) {
+      const breakdown = ratingLevels.reduce((acc, level) => {
+        acc[level] = 0;
+        return acc;
+      }, {});
+      let ratingSum = 0;
+      reviews.forEach((review) => {
+        const rawRating = Number(review?.rating ?? 0);
+        const normalized = clampRatingValue(rawRating);
+        ratingSum += normalized;
+        const rounded = Math.round(normalized);
+        if (rounded >= 1 && rounded <= 5) {
+          breakdown[rounded] = (breakdown[rounded] ?? 0) + 1;
+        }
+      });
+      const total = reviews.length;
+      return {
+        ratingValue: total ? ratingSum / total : 0,
+        reviewCount: total,
+        ratingBreakdown: breakdown,
+        totalBreakdownVotes: total,
+      };
+    }
+    return {
+      ratingValue: baseRatingValue,
+      reviewCount: baseReviewCount,
+      ratingBreakdown: baseRatingBreakdown,
+      totalBreakdownVotes: baseTotalBreakdownVotes,
+    };
+  }, [
+    reviews,
+    baseRatingValue,
+    baseReviewCount,
+    baseRatingBreakdown,
+    baseTotalBreakdownVotes,
+  ]);
+  const { ratingValue, reviewCount, ratingBreakdown, totalBreakdownVotes } =
+    reviewSummary;
 
   useEffect(() => {
     if (!displayBook?.book_id) {
