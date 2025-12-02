@@ -11,6 +11,19 @@ function authHeaders(accessToken, extra = {}) {
   };
 }
 
+function normalizeNumberId(rawValue, label = "Identifier") {
+  if (rawValue === undefined || rawValue === null || rawValue === "") {
+    throw new Error(`Missing ${label.toLowerCase()}.`);
+  }
+  const parsed =
+    typeof rawValue === "string" ? Number.parseInt(rawValue, 10) : rawValue;
+  const numeric = Number.isFinite(parsed) ? parsed : Number(rawValue);
+  if (!Number.isFinite(numeric)) {
+    throw new Error(`${label} is invalid.`);
+  }
+  return numeric;
+}
+
 function buildUrl(path, params) {
   const url = new URL(`${API_BASE_URL}${path}`);
   if (params && typeof params === "object") {
@@ -195,6 +208,19 @@ export async function adminCancelLoan(loanId, accessToken) {
     }
   );
   return parseResponse(response, "Unable to cancel this loan");
+}
+
+export async function adminFetchLoanById(loanId, accessToken, options = {}) {
+  const numericLoanId = normalizeNumberId(loanId, "Loan id");
+  const response = await fetch(
+    `${API_BASE_URL}/admin/loans/${numericLoanId}`,
+    {
+      method: "GET",
+      headers: authHeaders(accessToken),
+      signal: options.signal,
+    }
+  );
+  return parseResponse(response, "Unable to load this loan");
 }
 
 export async function adminListInvoices(params, accessToken) {

@@ -6,12 +6,114 @@ import {
   adminReturnLoan,
   adminRenewLoan,
   adminCancelLoan,
+  adminFetchLoanById,
 } from "../../api/admin";
 import { useAuthToken } from "../../contexts/AuthContext.jsx";
 import useAdminApiError from "../../hooks/useAdminApiError.js";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { NotFoundException } from "@zxing/library";
-import { fetchLoanById, fetchBookById } from "../../api/library.js";
+import { fetchBookById, fetchLoanById } from "../../api/library.js";
+
+function decodeBase64Url(value) {
+  if (!value) return null;
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const paddingNeeded =
+    normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
+  const padded = normalized + "=".repeat(paddingNeeded);
+  const atobRef =
+    (typeof globalThis !== "undefined" && globalThis.atob) ||
+    (typeof window !== "undefined" && window.atob) ||
+    null;
+  if (typeof atobRef === "function") {
+    try {
+      return atobRef(padded);
+    } catch {
+      // ignore
+    }
+  }
+  if (typeof Buffer !== "undefined" && typeof Buffer.from === "function") {
+    try {
+      return Buffer.from(padded, "base64").toString("utf-8");
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+function extractLoanIdFromToken(rawValue) {
+  if (!rawValue) return null;
+  const trimmed = rawValue.toString().trim();
+  if (!trimmed) return null;
+  const directMatch = trimmed.match(/loan[_\s:-]*id\s*[:=]?\s*(\d{1,10})/i);
+  if (directMatch) {
+    return Number.parseInt(directMatch[1], 10);
+  }
+  const segmentParts = trimmed.split(".");
+  if (segmentParts.length >= 2) {
+    const payloadIndex =
+      segmentParts.length === 3
+        ? 1
+        : Math.min(segmentParts.length - 1, 1);
+    const payloadSegment = segmentParts[payloadIndex];
+    const decoded = decodeBase64Url(payloadSegment);
+    if (decoded) {
+      const parsed = extractLoanIdFromPayload(decoded);
+      if (parsed !== null) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+}
+
+function numericFromValue(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractLoanIdFromPayload(payload) {
+  if (!payload) return null;
+  let source = payload;
+  if (typeof payload === "string") {
+    try {
+      source = JSON.parse(payload);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof source !== "object") return null;
+  const nestedLoan =
+    source.loan && typeof source.loan === "object" ? source.loan : null;
+  const ticket =
+    source.ticket && typeof source.ticket === "object" ? source.ticket : null;
+  const candidateValues = [
+    source.loan_id,
+    source.loanId,
+    source.id,
+    source.loan_code,
+    source.loanCode,
+    nestedLoan?.loan_id,
+    nestedLoan?.loanId,
+    nestedLoan?.id,
+    nestedLoan?.loan_code,
+    ticket?.loan_id,
+    ticket?.loanId,
+    ticket?.id,
+    ticket?.loan_code,
+  ].filter((value) => value !== undefined && value !== null);
+  for (const candidate of candidateValues) {
+    const numeric = numericFromValue(candidate);
+    if (numeric !== null) {
+      return numeric;
+    }
+  }
+  return null;
+}
 
 function AdminCirculation() {
   const [tokenInput, setTokenInput] = useState("");
@@ -38,6 +140,20 @@ function AdminCirculation() {
       (message) => setActionState({ type: "error", message }),
       []
     )
+  );
+  const fetchLoanDetails = useCallback(
+    async (loanId) => {
+      try {
+        return await adminFetchLoanById(loanId, accessToken);
+      } catch (adminError) {
+        try {
+          return await fetchLoanById(loanId, accessToken);
+        } catch (userError) {
+          throw userError ?? adminError;
+        }
+      }
+    },
+    [accessToken]
   );
   const stopScanner = useCallback(() => {
     if (readerRef.current) {
@@ -203,15 +319,48 @@ function AdminCirculation() {
         return;
       }
       setTokenInput(displayValue);
-      const repeatValue = shouldUseLoanId
+      let repeatValue = shouldUseLoanId
         ? String(numericLoanId)
         : tokenValue || displayValue;
+      let fallbackLoanId = null;
       try {
         setLoading(true);
         setActionState({ type: "info", message: "" });
-        const payload = shouldUseLoanId
-          ? await fetchLoanById(numericLoanId, accessToken)
-          : await adminScan(tokenValue || displayValue, accessToken);
+        let payload = null;
+        try {
+          if (shouldUseLoanId) {
+            payload = await fetchLoanDetails(numericLoanId);
+          } else {
+            const scanPayload = await adminScan(
+              tokenValue || displayValue,
+              accessToken
+            );
+            const normalizedScan = scanPayload.loan ?? scanPayload;
+            fallbackLoanId =
+              extractLoanIdFromPayload(normalizedScan) ??
+              extractLoanIdFromToken(tokenValue || displayValue);
+            if (fallbackLoanId !== null) {
+              repeatValue = String(fallbackLoanId);
+              payload = await fetchLoanDetails(fallbackLoanId);
+            } else {
+              payload = scanPayload;
+            }
+          }
+        } catch (primaryError) {
+          if (!shouldUseLoanId) {
+            const derivedLoanId =
+              fallbackLoanId ??
+              extractLoanIdFromToken(tokenValue || displayValue);
+            if (derivedLoanId !== null) {
+              repeatValue = String(derivedLoanId);
+              payload = await fetchLoanDetails(derivedLoanId);
+            } else {
+              throw primaryError;
+            }
+          } else {
+            throw primaryError;
+          }
+        }
         const normalizedLoan = payload.loan ?? payload;
         const hydratedLoan = await enrichLoanItems(normalizedLoan);
         setLoan(hydratedLoan);
@@ -228,7 +377,14 @@ function AdminCirculation() {
         setLoading(false);
       }
     },
-    [accessToken, tokenInput, handleAuthError, enrichLoanItems, parseScanInput]
+    [
+      accessToken,
+      tokenInput,
+      handleAuthError,
+      enrichLoanItems,
+      parseScanInput,
+      fetchLoanDetails,
+    ]
   );
 
   useEffect(() => {
